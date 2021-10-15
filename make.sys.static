@@ -1,0 +1,27 @@
+.SUFFIXES :
+.SUFFIXES : .o .c .h
+
+.c.o:
+	@echo Making $@ from $<
+	@$(CC) -c $(CFLAGS) $(INCLUDES) $<
+
+CC=mpiicc
+CFLAGS=-g
+
+## If your CPU support AVX2, it is recommanded to compile WannSymm with AVX2 to speed up the calculation.
+#CFLAGS=-g -mavx -axCORE-AVX2
+
+MKLROOT=/public/software/intel/2020.4/compilers_and_libraries/linux/mkl
+SPGLIBROOT=/netdisk/home/gxzhi/lib/spglib
+
+
+SPGINCLUDES=${SPGLIBROOT}/include
+SPGLIBS=${SPGLIBROOT}/lib/libsymspg.a
+
+
+MKLINCLUDE=$(MKLROOT)/include -m64
+MKLLIBS=-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread  -ldl
+
+
+INCLUDES=-I$(MKLINCLUDE) -I$(SPGINCLUDES) -I../modules -I.
+LIBS=$(SPGLIBS) $(MKLLIBS)

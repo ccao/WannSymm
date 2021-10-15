@@ -1,0 +1,24 @@
+.SUFFIXES :
+.SUFFIXES : .o .c .h
+
+.c.o:
+	@echo Making $@ from $<
+	@$(CC) -c $(CFLAGS) $(INCLUDES) $<
+
+CC=mpiicc
+CFLAGS=-g
+
+MKLROOT=/public/software/intel/2020.4/compilers_and_libraries/linux/mkl
+SPGLIBROOT=/netdisk/home/gxzhi/lib/spglib
+
+
+SPGINCLUDES=${SPGLIBROOT}/include
+SPGLIBS=-L${SPGLIBROOT}/lib -lsymspg -lm
+
+
+MKLINCLUDE=$(MKLROOT)/include
+MKLLIBS=-L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core
+
+
+INCLUDES=-I$(MKLINCLUDE) -I$(SPGINCLUDES) -I../modules -I.
+LIBS=$(MKLLIBS) $(SPGLIBS)
