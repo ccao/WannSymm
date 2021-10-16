@@ -11,7 +11,7 @@ ccao@zju.edu.cn
 
 or
 
-guoxiang.zhi@gmai.com
+guoxiang.zhi@gmail.com
 
 ## Installation
 
