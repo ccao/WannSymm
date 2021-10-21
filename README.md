@@ -2,7 +2,7 @@
 
 This program was developed by Chao Cao and Guo-Xiang Zhi @ Zhejiang University. Please cite the following paper:
 
-- G.-X. Zhi, C.-C. Xu, S.-Q. Wu, F.-L. Ning and Chao Cao, WannSymm: A symmetry analysis code for Wannier orbitals, Computer Physics Communications, 271 (2021) 108196, doi: https://doi.org/10.1016/j.cpc.2021.108196.
+- G.-X. Zhi, C.-C. Xu, S.-Q. Wu, F.-L. Ning and Chao Cao, WannSymm: A symmetry analysis code for Wannier orbitals, Computer Physics Communications, 271 (2022) 108196, doi: https://doi.org/10.1016/j.cpc.2021.108196.
 
 Bugs and comments can be submitted via GitHub or email to:
 
