@@ -27,6 +27,7 @@ void write_reduced_ham(wanndata * wann, char * seed);
 
 int find_index_of_ham(wanndata * wann, wannorb * orb_info, int num_wann, int irpt, vector site1, int r1, int l1, int mr1, int ms1, vector site2, int r2, int l2, int mr2, int ms2);
 
+// below are not fully implentmented yet
 typedef struct __hamblock {
     int norb;
     double complex * ham;
@@ -53,5 +54,6 @@ void ham_R_write(ham_R * hr, char * seed);
 void ham_R_addrvec(ham_R * hr, vector * rvec, int nrvec_add);
 void ham_R_delrvec(ham_R * hr, vector rvec);
 
+int combine_wanndata(wanndata * out, wanndata * wup, wanndata * wdn );
 
 #endif

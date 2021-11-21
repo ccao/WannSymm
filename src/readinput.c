@@ -1211,6 +1211,11 @@ void derive_symm_for_magnetic_materials(double rotations[][3][3],
 
         for(iatom=0;iatom<natom;iatom++)
         {
+            //zero magmom have no right to vote
+            if( distance(magmom[iatom], origin, NULL) < fabs(eps) ) {
+                tot_votes--;
+                continue;
+            }
             atpos_symmed = vector_rotate(atpos[iatom], rotations[isymm]);
             atpos_symmed = vector_add(atpos_symmed, array2vector(translations[isymm]));
             mag_roted    = vector_rotate(magmom[iatom], rot_cart);
@@ -1233,34 +1238,30 @@ void derive_symm_for_magnetic_materials(double rotations[][3][3],
                 print_error(msg);
                 //exit(1);
             }
-            //zero magmom have no right to vote
-            if( distance(magmom[jatom], origin, NULL) < fabs(eps) && 
-                distance(magmom[iatom], origin, NULL) < fabs(eps) )
-            {
-                tot_votes--;
-            }
-            else if(  distance( magmom[jatom], mag_roted, NULL) < fabs(eps) )
+            if(  distance( magmom[jatom], mag_roted, NULL) < fabs(eps) )
             {
                 keep_symm_vote++;
             }
             else if( distance( magmom[jatom], vector_scale(-1, mag_roted), NULL) < fabs(eps) )
             {
-                keep_symm_vote++;
                 tr_vote++;
             }
         }
-        if(keep_symm_vote == tot_votes ){
+        if( tot_votes == 0 && isymm == 0){
+            sprintf(msg, "Warning: no magnetic ion found, please make sure the \"MAGMOM\" in input file is correctly set.");
+            print_error(msg);
+        }
+        if( keep_symm_vote == tot_votes || tr_vote == tot_votes ){
             // this symmetry belongs to the magnetic group
             matrix3x3_copy(magsymm[nsymm_mag].rot, rotations[isymm]);
             matrix3x1_copy(magsymm[nsymm_mag].trans, translations[isymm]);
-            if( tot_votes > 0 && tr_vote == tot_votes )
-            {
-                // symmetry with TRS
-                magsymm[nsymm_mag].TR = 1;
-            }
-            else{
+            if( keep_symm_vote == tot_votes ) {
                 // symmetry without TRS
                 magsymm[nsymm_mag].TR = 0;
+            }
+            else{
+                // symmetry with TRS
+                magsymm[nsymm_mag].TR = 1;
             }
             nsymm_mag++;
         }
@@ -1371,8 +1372,15 @@ void print_symmetry(const char * fnout, double lattice[3][3], int isymm, double 
         fprintf(fout, "symm%4d with additional 360 deg rotation for spinor\n", abs(isymm));
     } else {
         fprintf(fout, "symm%4d:", isymm+1);
-        if( fabs(rot_angle) < 1e-3 && inv_flag == 0 && TR != 1){
-            fprintf(fout, " Identity\n");
+        if( fabs(rot_angle) < 1e-3 
+            && TR != 1 
+            && (trans == NULL || fabs(trans[0]) + fabs(trans[1]) + fabs(trans[2]) < eps4) )
+        {
+            if( inv_flag == 0 ){
+                fprintf(fout, " Identity\n");
+            } else {
+                fprintf(fout, " Inversion\n");
+            }
             fclose(fout);
             return;
         }

@@ -27,7 +27,7 @@ typedef struct __smallgroup{
 
 // calculate eigenvalues and characters
 void bnd_eigcha(double * eig_hk, int * ndegen, dcomplex *** p2sym_chas, dcomplex *** p2sym_eigs, smallgroup * sgrp,
-                double lattice[3][3], double rotations[][3][3], double translations[][3], double rots_kd[][3][3], int nsymm,
+                double lattice[3][3], double rotations[][3][3], double translations[][3], int TR[], double rots_kd[][3][3], int nsymm,
                 wannorb * orb_info, int flag_soc, 
                 wanndata * hr, vector kpt, double degenerate_tolerance);
 

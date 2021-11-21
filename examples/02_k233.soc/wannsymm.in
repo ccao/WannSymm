@@ -1,4 +1,4 @@
-# template input file of symmham.x
+# template input file of wannsymm.x
 # anything following '#', '!' or '//' in a line will be regard as comments
 # tag names are case insensitive( SeedName and seednAme are equivalent)
 # 

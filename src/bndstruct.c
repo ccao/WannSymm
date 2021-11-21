@@ -1,7 +1,7 @@
 #include "bndstruct.h"
 
 void bnd_eigcha(double * eig_hk, int * ndegen, dcomplex *** p2sym_chas, dcomplex *** p2sym_eigs, smallgroup * sgrp,
-                double lattice[3][3], double rotations[][3][3], double translations[][3], double rots_kd[][3][3], int nsymm,
+                double lattice[3][3], double rotations[][3][3], double translations[][3], int TR[], double rots_kd[][3][3], int nsymm,
                 wannorb * orb_info, int flag_soc, 
                 wanndata * hr, vector kpt, double degenerate_tolerance) {
     // determine the small group (sgrp) that keep kpt unchanged.
@@ -53,6 +53,11 @@ void bnd_eigcha(double * eig_hk, int * ndegen, dcomplex *** p2sym_chas, dcomplex
         // the operations keep kpt unchanged sum up to be the small group.
         // we need to calculate the character only for small group.
         kpt_roted = vector_rotate(kpt, rots_kd[isymm]);
+        if(TR[isymm] == 1 ){
+            // time-reversal symmetry (TRS) is anti-unitary, character and eigenvalue are not well defined.
+            continue;
+            //kpt_roted = vector_scale(-1.0, kpt_roted);
+        }
         if(kpt_equivalent(kpt_roted, kpt, lattice)){
             sgrp->element[sgrp->order] = isymm;
             // sgrp->element range [0, nsymm-1] for single-valued group
@@ -79,7 +84,7 @@ void bnd_eigcha(double * eig_hk, int * ndegen, dcomplex *** p2sym_chas, dcomplex
     for(sgrpi=0; sgrpi < sgrp->order; sgrpi++){
         isymm = sgrp->element[sgrpi];
         if(isymm < 0)  isymm = -isymm - 1;
-        get_sym_op_reciprocalspace(sym_op, lattice, orb_info, norb, sgrp->element[sgrpi], rotations[isymm], translations[isymm], rots_kd[isymm], kpt, flag_soc);
+        get_sym_op_reciprocalspace(sym_op, lattice, orb_info, norb, sgrp->element[sgrpi], rotations[isymm], translations[isymm], TR[isymm], rots_kd[isymm], kpt, flag_soc);
         
         //sym_op will be block diagonalized by vr_hk 
         //sym_op_block_diag = vr_hk.conj.transe * sym_op * vr_hk
@@ -282,9 +287,10 @@ void bnd_write_bands(FILE * fbands, int norb, int nkpath, int nk_per_kpath, doub
     double kpath_len;
     double rec_latt[3][3];
 
-    // reciprocal lattice = lattice.inv.transpose
+    // reciprocal lattice (row major)     = lattice.inv.transpose
+    // reciprocal lattice (column major)  = lattice.inv
     matrix3x3_inverse(rec_latt, lattice);
-    matrix3x3_transpose(rec_latt, rec_latt);
+    //matrix3x3_transpose(rec_latt, rec_latt);
 
     fprintf(fbands, "#   k-path len        Energy\n");
     for(io=0; io<norb; io++){

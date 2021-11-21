@@ -1,6 +1,6 @@
 #include "rotate_basis.h"
 
-void get_sym_op_reciprocalspace(dcomplex * sym_op, double lattice[3][3], wannorb * orb_info, int norb, int isym_in_doublegp, double rotation[3][3],double translation[3], double rot_kd[3][3], vector kpt, int flag_soc) {
+void get_sym_op_reciprocalspace(dcomplex * sym_op, double lattice[3][3], wannorb * orb_info, int norb, int isym_in_doublegp, double rotation[3][3],double translation[3], int TR, double rot_kd[3][3], vector kpt, int flag_soc) {
    //
    //  trans from ccao's fortran code
    //
@@ -27,9 +27,9 @@ void get_sym_op_reciprocalspace(dcomplex * sym_op, double lattice[3][3], wannorb
    // 
    //   isym_in_doublegp : index of symm in double group, range [-nsymm, nsymm-1], nsymm is num of symm in single-valued group
 
-    if( fabs(translation[0]) > 1E-3 || fabs(translation[1]) > 1E-3 || fabs(translation[2]) > 1E-3){
-        fprintf(stderr, "Warning, non symmorphic symmetry detected\n");
-    }
+    // if( fabs(translation[0]) > 1E-3 || fabs(translation[1]) > 1E-3 || fabs(translation[2]) > 1E-3){
+    //     fprintf(stderr, "Warning, non symmorphic symmetry detected\n");
+    // }
 
     int i,j,k;
     int ii,jj,kk;
@@ -85,6 +85,9 @@ void get_sym_op_reciprocalspace(dcomplex * sym_op, double lattice[3][3], wannorb
     }
 
     kpt_roted = vector_rotate(kpt, rot_kd);
+    if(TR==1){
+        kpt_roted = vector_scale(-1.0, kpt_roted);
+    }
     for(io=0;io<norb;io++){
         for(jo=0;jo<norb;jo++){
             //if( ! kpt_equivalent(kpt_roted, kpt) ){

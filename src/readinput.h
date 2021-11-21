@@ -141,4 +141,7 @@ int str2boolean(char * arg);
 void read_kpath_info(vec_llist ** p2kpaths, char klabels[][SHORTLEN], int * p2nkpath, FILE * fin);
 void read_kpts_info(vec_llist ** p2kpts, int * p2nkpt, FILE * fin);
 
+// not implentmented yet
+int readatag(char * tag, char * arg, char * fn, int ignorecase);
+
 #endif

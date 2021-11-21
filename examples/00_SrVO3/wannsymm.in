@@ -1,13 +1,14 @@
-# template input file of symmham.x
+# template input file of wannsymm.x
 # anything following '#', '!' or '//' in a line will be regard as comments
 # tag names are case insensitive( SeedName and seednAme are equivalent)
 # 
 
-DFTcode  = VASP
+DFTcode=VASP
+#DFTcode=QE
 
-Spinors  = F
+Spinors= F
 
-SeedName ='k233'
+SeedName='SrVO3'
 
 # Use_POSCAR-tag and Structure_in_Format_of_POSCAR-section have same effect
 Use_POSCAR = 'POSCAR'
@@ -15,11 +16,10 @@ Use_POSCAR = 'POSCAR'
 # Projections_in_Format_of_wannier90
 # NOTE: Do not support local axis now
 begin projections
-  Cr: d
-  As: p
+  V: d
 end projections
 
-
-restart = T
 # Kpoint for calculating band's character of every symmetry
-kpt = 0 0 0
+kpt = '0 0 0'
+
+restart = 1

@@ -59,6 +59,8 @@ int main(int argc, char ** argv){
     FILE * fstdout;
     char * fn_input;                    //input file name
     char seed[MAXLEN];                          //seed name of wannier90
+    char seedup[MAXLEN];                        //seed name for spin up of spin collinear calculation
+    char seeddn[MAXLEN];                        //seed name for spin dn of spin collinear calculation
     double lattice[3][3];                       //crystal lattice
     SymmetryOperator S[MAX_NUM_of_SYMM];
     double rotations[MAX_NUM_of_SYMM][3][3];    //symmetry operations -> rotations(double)
@@ -699,7 +701,7 @@ int main(int argc, char ** argv){
             kpt = vec_llist_pop(&kpts, &nerr);
 
             bnd_eigcha(eig_hk, ndegen, &sym_chas, &sym_eigs, &sgrp,
-                       lattice, rotations, translations, rots_kd, nsymm,
+                       lattice, rotations, translations, TR, rots_kd, nsymm,
                        orb_info, flag_soc, 
                        &ham_final, kpt, degenerate_tolerance);
 
