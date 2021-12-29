@@ -1,0 +1,40 @@
+# template input file of wannsymm.x
+# anything following '#', '!' or '//' in a line will be regard as comments
+# tag names are case insensitive( SeedName and seednAme are equivalent)
+# 
+
+DFTcode  = VASP
+
+Spinors  = F
+
+SeedName ='K233'
+
+Use_POSCAR = 'POSCAR'
+
+Use_Symmetry = 'symmetries.in'
+
+# Projections_in_Format_of_wannier90
+# NOTE: Do not support local axis now
+begin projections
+  Cr: d
+  As: p
+end projections
+
+Output_Mem_Usage=T
+
+nk_per_kpath = 101
+#chaeig_in_kpath = T
+
+begin kpath
+G  0.0000000  0.0000000  0.0000000  K  0.3333333  0.3333333  0.0000000
+K  0.3333333  0.3333333  0.0000000  M  0.0000000  0.5000000  0.0000000
+M  0.0000000  0.5000000  0.0000000  G  0.0000000  0.0000000  0.0000000
+G  0.0000000  0.0000000  0.0000000  A  0.0000000  0.0000000  0.5000000
+A  0.0000000  0.0000000  0.5000000  H  0.3333333  0.3333333  0.5000000
+H  0.3333333  0.3333333  0.5000000  L  0.0000000  0.5000000  0.5000000
+L  0.0000000  0.5000000  0.5000000  A  0.0000000  0.0000000  0.5000000
+end kpath
+
+#restart = T
+# Kpoint for calculating band's character of every symmetry
+#kpt = 0 0 0
