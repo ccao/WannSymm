@@ -419,19 +419,26 @@ void get_axis_angle_of_rotation(double axis[3], double * angle, int * inv, doubl
 
         if( fabs(axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle) - rot[1][0]) > 1e-5 )
             *angle *= -1;
+        if( fabs(axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle) - rot[1][0]) > 1e-3 )
+            *angle *= -1;
+        if( fabs(axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle) - rot[1][0]) > 0.2 )
+            *angle *= -1;
+
         //if(sign(rot[1][0]) != sign(*angle))
-        if( fabs(axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle) - rot[1][0]) > 1e-5 ){
-            fprintf(stderr, "!ERROR: Can not find corresponding axis & angle, Rotation is:\n");
-            fprintf(stderr, "rin:        rot:\n");
+        if( fabs(axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle) - rot[1][0]) > 0.1 ){
+            fprintf(stderr, "!ERROR: Can not find corresponding axis & angle \n");
+            fprintf(stderr, "rot_direct:        rot_Cartesian:\n");
             for(ii=0;ii<3;ii++){
                 for(jj=0;jj<3;jj++)
                     fprintf(stderr, "%9.5lf ",rin[ii][jj]);
+                fprintf(stderr, "  ||   ");
                 for(jj=0;jj<3;jj++)
                     fprintf(stderr, "%9.5lf ",rot[ii][jj]);
                 fprintf(stderr,"\n");
             }
-            fprintf(stderr,"rot[1][0]=%7.3lf, axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle)=%7.3lf\n", 
+            fprintf(stderr,"rot_Cartesian[1][0] =%15.9lf\naxis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle)=%15.9lf\n", 
                             rot[1][0], axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle));
+            fprintf(stderr,"Generally, rot_Cartesian[1][0] should be equal to axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle)\n");
             fprintf(stderr,"angle=%6.2lf, axis=%7.3lf%7.3lf%7.3lf\n",(*angle)/PI*180,axis[0],axis[1],axis[2]);
             exit(0);
         }

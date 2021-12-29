@@ -1324,6 +1324,7 @@ void print_error(char * msg){
     fprintf(ferr, "%s", msg);
     fprintf(ferr, "\n");
     fclose(ferr);
+    print_msg("ERROR: see 'wannsymm.err' file for detail.\n");
 }
 
 void print_msg(char * msg){
