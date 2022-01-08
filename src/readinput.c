@@ -1436,11 +1436,13 @@ void read_kpath_info(vec_llist ** p2kpaths, char klabels[][SHORTLEN], int * p2nk
     double array_kpt[2][3];
     char * fgets_state;
 
-    fgets_state = fgets(line, MAXLEN, fin);
-    parseline(tag, arg, line, 1);
-    for(ipath=0; ! (tag[0] == 'e' && tag[1] == 'n' && tag[2] == 'd') && fgets_state != NULL; ipath++){
+    ipath=0;
+    while(1){
+        fgets_state = fgets(line, MAXLEN, fin);
+        parseline(tag, arg, line, 1);
+        if( tag[0] == '\0' || strcmp(tag, "") == 0 || strcmp(tag, "NULL") == 0 ) continue; // empty or comment string
+        if( (tag[0] == 'e' && tag[1] == 'n' && tag[2] == 'd') || fgets_state == NULL ) break;
         if(ipath > MAXLEN-1) continue;  // skip lines beyond MAXLEN to prevent memory buffer overflow.
-        if( tag[0] == '\0' || strcmp(tag, "") == 0 ) continue;  //empty string do nothing
         tmpstr = strtok(line, " ");
         for(i=0; i<8 && tmpstr!=NULL; i++){
             if(i%4 == 0){
@@ -1454,8 +1456,7 @@ void read_kpath_info(vec_llist ** p2kpaths, char klabels[][SHORTLEN], int * p2nk
             tmpkpt = array2vector(array_kpt[i]);
             vec_llist_add(p2kpaths, tmpkpt);
         }
-        fgets_state = fgets(line, MAXLEN, fin);
-        parseline(tag, arg, line, 1);
+        ipath++;
     }
     *p2nkpath = ipath;
 }
