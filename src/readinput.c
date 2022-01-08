@@ -410,10 +410,13 @@ void readinput(char * fn_input,
     print_flag(fstdout, "flag_consider_global_trsymm", *p2flag_global_trsymm);
     print_flag(fstdout, "flag_expandrvec            ", *p2flag_expandrvec);
     if( *p2flag_expandrvec == 0){
-        fprintf(fstdout,"    ham_tolerance           = %.5lf\n", *p2ham_tolerance);
+        fprintf(fstdout,"    ham_tolerance           = %.2e\n", *p2ham_tolerance);
     }
     print_flag(fstdout, "flag_calculate_chaeig      ", *p2flag_chaeig);
     print_flag(fstdout, "flag_chaeig_in_kpath       ", *p2flag_chaeig_in_kpath);
+    if( *p2flag_chaeig_in_kpath == 1 ){
+        fprintf(fstdout,"degenerate_tolerance        = %.2e\n", *p2degenerate_tolerance);
+    }
     fprintf(fstdout,    "num of k-point              = %d (for cha and eig calculation)\n", *p2nkpt);
     print_flag(fstdout, "flag_bands_symmetrized     ", flag_bands_symm);
     print_flag(fstdout, "flag_bands_original        ", flag_bands_ori);
