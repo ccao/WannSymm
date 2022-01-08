@@ -195,7 +195,7 @@ void bnd_write_characters(const char * fnout, int ikpt, vector kpt, smallgroup *
     //fprintf(fbndsymcha, "kpt No. %5d:%10.7lf %10.7lf %10.7lf\n", ikpt+1, kpt.x, kpt.y, kpt.z);
     fprintf(fbndsymcha, "kpt:%10.7lf %10.7lf %10.7lf\n", kpt.x, kpt.y, kpt.z);
     //output symmetries that keep kpt invariant
-    fprintf(fbndsymcha, "Related symmetries:\n");
+    fprintf(fbndsymcha, "SmallGroupOrder= %d , Related symmetries:\n", sgrp->order);
     fclose(fbndsymcha);
     for(sgrpi=0; sgrpi < sgrp->order; sgrpi++){
         isymm = sgrp->element[sgrpi];
@@ -245,7 +245,7 @@ void bnd_write_eigenvalues(const char * fnout, int ikpt, vector kpt, smallgroup 
     //fprintf(fbndsymeig, "kpt No. %5d:%10.7lf %10.7lf %10.7lf\n", ikpt+1, kpt.x, kpt.y, kpt.z);
     fprintf(fbndsymeig, "kpt:%10.7lf %10.7lf %10.7lf\n", kpt.x, kpt.y, kpt.z);
     //output symmetries that keep kpt invariant
-    fprintf(fbndsymeig, "Related symmetries:\n");
+    fprintf(fbndsymeig, "SmallGroupOrder= %d , Related symmetries:\n", sgrp->order);
     fclose(fbndsymeig);
     for(sgrpi=0; sgrpi<sgrp->order; sgrpi++){
         isymm = sgrp->element[sgrpi];

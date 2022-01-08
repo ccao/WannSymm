@@ -690,11 +690,11 @@ int main(int argc, char ** argv){
 
         fbndsymcha = fopen(fn_out_cha, "w");
         if(nkpt > 1)
-            fprintf(fbndsymcha, "Characters of symmetry operations    nkpt=%d\n\n", nkpt);
+            fprintf(fbndsymcha,  "Characters of symmetry operations    nkpt= %d  nbnd= %d\n\n", nkpt, norb);
         fclose(fbndsymcha);
         fbndsymeig = fopen(fn_out_eig, "w");
         if(nkpt > 1)
-            fprintf(fbndsymeig, "Eigenvalues of symmetry operations    nkpt=%d\n\n", nkpt);
+            fprintf(fbndsymeig, "Eigenvalues of symmetry operations    nkpt= %d  nbnd= %d\n\n", nkpt, norb);
         fclose(fbndsymeig);
         nerr = 1;
         for(ikpt=0; ikpt<nkpt && nerr!=-1 ; ikpt++){
