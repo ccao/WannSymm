@@ -1440,6 +1440,7 @@ void read_kpath_info(vec_llist ** p2kpaths, char klabels[][SHORTLEN], int * p2nk
     parseline(tag, arg, line, 1);
     for(ipath=0; ! (tag[0] == 'e' && tag[1] == 'n' && tag[2] == 'd') && fgets_state != NULL; ipath++){
         if(ipath > MAXLEN-1) continue;  // skip lines beyond MAXLEN to prevent memory buffer overflow.
+        if( tag[0] == '\0' || strcmp(tag, "") == 0 ) continue;  //empty string do nothing
         tmpstr = strtok(line, " ");
         for(i=0; i<8 && tmpstr!=NULL; i++){
             if(i%4 == 0){
