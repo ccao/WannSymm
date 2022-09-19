@@ -24,13 +24,13 @@ int find_index_of_wannorb(wannorb * wann,int num_wann, vector site, int r, int l
     return -1;
 }
 
-void init_wannorb(wannorb * orb,vector site, int l, int mr, int ms, int r, vector axisz, vector axisx){
+void init_wannorb(wannorb * orb,vector site, int l, int mr, int ms, int r, vector axisz, vector axisx, vector axisy){
     orb->site    = site;
     orb->l       = l;
     orb->mr      = mr;
     orb->ms      = ms;
     orb->r       = r;
     orb->axis[2] = axisz;
-    orb->axis[0] = axisx;
-    orb->axis[1] = cross_product(axisz, axisx);
+    orb->axis[0] = axisx; 
+    orb->axis[1] = axisy;
 }

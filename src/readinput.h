@@ -43,8 +43,13 @@ typedef struct __projgroup {
     // one projection group is one line in projection section of input file
     int npj;      // total projections written in this line
     int norb;     // number of orbital related to this line, e.g. (nonsoc) s::1 p:3  s;p::4  s;p;d::9
-    char element[32];
-    char orbname[64][32];
+    char element[32];       // string of element name (also can be site coordinates)
+    char orbname[64][32];   // string of orbital name (also can be angular momentum specified by l and mr.Directly specified l and mr are not supported yet 22-07-17.)
+    char zaxis_str[32];     // string storing the z-axis
+    char xaxis_str[32];     // string storing the x-axis
+    char yaxis_str[32];     // string storing the y-axis
+    char radial_str[32];    // string storing the index for radial function
+    char zona_str[32];      // string storing the Z/a value
 } projgroup;
 
 void readinput(char * fn_input,
@@ -58,6 +63,7 @@ void readinput(char * fn_input,
                int * p2number_of_symm, 
                wannorb ** p2orb_info, 
                int * p2num_wann, 
+               int * p2flag_local_axis,
                vec_llist ** p2kpts,
                int * p2nkpt,
                vec_llist ** p2kpaths,
@@ -81,7 +87,7 @@ void readinput(char * fn_input,
 void parsestr_find_remove( char strout[MAXLEN], char strin[MAXLEN], char target);
 // remove $target from sin, output is sout, sin and sout can be same
 
-void parseline( char tag[MAXLEN], char arg[MAXLEN], char line[MAXLEN], int ignorecase);
+void parseline( char tag[MAXLEN], char arg[MAXLEN], char inputline[MAXLEN], int ignorecase);
 
 void setup_codetype(int * p2code_type, char dftcode[MAXLEN]);
 
@@ -97,6 +103,7 @@ void read_pos_info(double lattice[3][3],
 
 void read_projection_info(projgroup pjgroup[MAXLEN],
                           int *  p2num_pjgroup,
+                          int * p2flag_local_axis,
                           FILE * fin);
 
 void derive_projection_info(int *  p2num_wann, 

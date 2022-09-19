@@ -19,6 +19,7 @@ void readinput(char * fn_input,
                int * p2number_of_symm, 
                wannorb ** p2orb_info, 
                int * p2num_wann, 
+               int * p2flag_local_axis,
                vec_llist ** p2kpts,
                int * p2nkpt,
                vec_llist ** p2kpaths,
@@ -146,6 +147,7 @@ void readinput(char * fn_input,
         else if( strcmp(tag, "beginprojections")==0 || strcmp(tag, "beginprojection" )==0){
             read_projection_info(pjgroup, 
                                  &num_pjgroup, 
+                                 p2flag_local_axis,
                                  fin);
         }
         else if( strcmp(tag, "beginkpath")==0 || strcmp(tag, "beginkpaths" )==0 || strcmp(tag, "beginkpoint_path")==0 ){
@@ -561,15 +563,18 @@ void parsestr_find_remove( char strout[MAXLEN], char strin[MAXLEN], char target)
     strcpy(strout, tmpout);
 }
 
-void parseline( char tag[MAXLEN], char arg[MAXLEN], char line[MAXLEN], int ignorecase){
-    strcpy(tag,"NULL");
-    strcpy(arg,"NULL");
+void parseline( char tag[MAXLEN], char arg[MAXLEN], char inputline[MAXLEN], int ignorecase){
     int metdivid=0;         //met '=' or ':'
     int metarg=0;           //met first nonspace argument after '=' or ':'
     int flag_inquota=0;
     int i;
     int j=0;
     int k=0;
+    char line[MAXLEN];
+
+    strcpy(line, inputline);
+    strcpy(tag,"NULL");
+    strcpy(arg,"NULL");
 
     for(i=0; line[i]!='\0' && line[i]!='\n' && i<MAXLEN; i++){
         if( flag_inquota==0 && (line[i]=='#' || line[i]=='!' || ( line[i]=='/' && line[i+i]=='/'))){
@@ -579,7 +584,7 @@ void parseline( char tag[MAXLEN], char arg[MAXLEN], char line[MAXLEN], int ignor
             flag_inquota = 1-flag_inquota;
             continue;
         }
-        if( flag_inquota==0 && line[i]=='=' || line[i]==':'){
+        if( flag_inquota==0 && metdivid==0 && line[i]=='=' || line[i]==':'){
             metdivid++;
             continue;
         }
@@ -601,18 +606,18 @@ void parseline( char tag[MAXLEN], char arg[MAXLEN], char line[MAXLEN], int ignor
             arg[k++] = line[i];
             if(line[i] != ' ') metarg++;
         }else{
-            fprintf(stderr,"ERROR: parseline() at readinput.c");
+            print_error("ERROR: parseline() at readinput.c");
             exit(1);
         }
     }
     if(flag_inquota==1){
-        fprintf(stderr, "quotation marks not complete in input file\n");
+        print_error("quotation marks not complete in input file\n");
         exit(1);
     }
     if(j!=0)  tag[j] = '\0';
     if(k!=0){
         arg[k] = '\0';
-        while(arg[k-1]==' '){
+        while(k>0 && arg[k-1]==' '){
             arg[ k - 1 ] = '\0';
             k--;
         }
@@ -624,14 +629,15 @@ void parseline( char tag[MAXLEN], char arg[MAXLEN], char line[MAXLEN], int ignor
 
 
 void setup_codetype(int * p2code_type, char dftcode[MAXLEN]){
-    if( strcmp(dftcode, "VASP") == 0 ){
+    char msg[MAXLEN];
+    if( strcmp(dftcode, "VASP") == 0 || strcmp(dftcode, "1") == 0 ){
         *p2code_type=1;
-    } else if( strcmp(dftcode, "QE") == 0){
+    } else if( strcmp(dftcode, "QE") == 0 || strcmp(dftcode, "2") == 0){
         *p2code_type=2;
-        fprintf(stderr, "\n\nNote: DFTcode=QE is a testing feature\n\n");
+        //print_error("\n\nNote: DFTcode=QE is a testing feature\n\n");
     } else {
-        fprintf(stderr, "ERROR!!!: not supported code type, %s,", dftcode);
-        fprintf(stderr, "Only supporting VASP now\n");
+        sprintf(msg, "ERROR!!! not supported code type, %s\n", dftcode);
+        print_error(msg);
         exit(1);
     }
 }
@@ -707,7 +713,7 @@ void read_pos_info(double lattice[3][3],
     }
     name_of_atoms_each[j][k] = '\0';
     if(j==-1 || (j==0 && k==0)){
-        fprintf(stderr, "ERROR!!!: The 6th line of POSCAR must contain elements' name.\n");
+        print_error("ERROR!!!: The 6th line of POSCAR must contain elements' name.\n");
         exit(1);
     }
 
@@ -775,6 +781,7 @@ void read_pos_info(double lattice[3][3],
 
 void read_projection_info(projgroup pjgroup[MAXLEN],
                           int *  p2num_pjgroup,
+                          int * p2flag_local_axis,
                           FILE * fin){
     int i,j,k;
     int ii,jj,kk;
@@ -783,6 +790,8 @@ void read_projection_info(projgroup pjgroup[MAXLEN],
     char tag_lowercase[MAXLEN]="trivial initial string";
     char arg[MAXLEN];
     char arg_lowercase[MAXLEN];
+    char tmptag[MAXLEN];
+    char tmparg[MAXLEN];
 
     i=0;j=0;k=0;
     fgets(line, MAXLEN, fin);
@@ -791,18 +800,63 @@ void read_projection_info(projgroup pjgroup[MAXLEN],
     parseline(tag_lowercase, arg_lowercase, line, 1);
     parsestr_find_remove(arg_lowercase, arg_lowercase, ' ');
     for(i=0;strcmp(tag_lowercase, "endprojections")!=0 && strcmp(tag_lowercase, "endprojection")!=0; i++){
+        // firstly initialize optional tags with default values
+        strcpy(pjgroup[i].zaxis_str, "0,0,1");
+        strcpy(pjgroup[i].xaxis_str, "1,0,0");
+        strcpy(pjgroup[i].yaxis_str, "0,1,0");
+        strcpy(pjgroup[i].radial_str, "1");
+        strcpy(pjgroup[i].zona_str, "1.0");
+
+        // then read values for each tags
         strcpy(pjgroup[i].element, tag);
-        for(ii=0; arg[ii] != '\0'; ii++){
-            if(arg[ii]==',' || arg[ii]==59){
-                pjgroup[i].orbname[j++][k] = '\0';
-                k=0;
+        ii=0;
+        while(arg[ii] != '\0'){
+            if(arg[ii]==':'){
+                continue;
             }
-            else{
-                pjgroup[i].orbname[j][k++] = arg[ii];
+            parseline(tmptag, tmparg, arg+ii, 0);
+            if(strcmp(tmptag,"x")==0 && tmparg[0]>47 && tmparg[0]<58 ){
+                // tmptag is x and tmparg is a number in [0-9]
+                parseline(tmptag, tmparg, tmparg, 0);
+                strcpy(pjgroup[i].xaxis_str, tmptag);
+                *p2flag_local_axis += 1;
+            }
+            else if(strcmp(tmptag,"y")==0 && tmparg[0]>47 && tmparg[0]<58 ){
+                parseline(tmptag, tmparg, tmparg, 0);
+                strcpy(pjgroup[i].yaxis_str, tmptag);
+                *p2flag_local_axis += 1;
+            }
+            else if(strcmp(tmptag,"z")==0 && tmparg[0]>47 && tmparg[0]<58 ){
+                parseline(tmptag, tmparg, tmparg, 0);
+                strcpy(pjgroup[i].zaxis_str, tmptag);
+                *p2flag_local_axis += 1;
+            }
+            else if(strcmp(tmptag,"r")==0 && tmparg[0]>47 && tmparg[0]<58 ){
+                parseline(tmptag, tmparg, tmparg, 0);
+                strcpy(pjgroup[i].radial_str, tmptag);
+            }
+            else if(strcmp(tmptag,"zona")==0 && tmparg[0]>47 && tmparg[0]<58 ){
+                parseline(tmptag, tmparg, tmparg, 0);
+                strcpy(pjgroup[i].zona_str, tmptag);
+            }
+            else {
+                // orbital definition
+                for(jj=0; tmptag[jj] != '\0'; jj++){
+                    if(tmptag[jj]==59){
+                        pjgroup[i].orbname[j++][k] = '\0';
+                        k=0;
+                    }
+                    else{
+                        pjgroup[i].orbname[j][k++] = tmptag[jj];
+                    }
+                }
+            }
+            while(arg[ii] != ':' && arg[ii] != '\0' ){
+                ii++;
             }
         }
         if( !isletter( pjgroup[i].orbname[j][0]) ){
-            fprintf(stderr, "ERROR!!! projections defined wrong.\n");
+            print_error("ERROR!!! projections defined wrong.\n");
             exit(1);
         }
         pjgroup[i].orbname[j][k] = '\0';
@@ -843,17 +897,22 @@ void derive_projection_info(int *  p2num_wann,
     int isite, iproj;
     int site_first;
     vector vx,vy,vz;
+    vector cart_vx, cart_vy, cart_vz;
     vector site;
     int l, mr, r;
+    double eps;
+    char msg[MAXLEN];
 
     r=1;    // set to 1 by deafult
-    init_vector(&vz, 0, 0, 1);  //  Local orbital set to default now,
-    init_vector(&vx, 1, 0, 0);  //  will add support for self defined 
-    vy=cross_product(vz, vx);
+    init_vector(&cart_vz, 0, 0, 1);  //  Local orbital set to default now,
+    init_vector(&cart_vx, 1, 0, 0);  //  will add support for self defined 
+    init_vector(&cart_vy, 0, 1, 0);  //  will add support for self defined 
+    //vy=cross_product(vz, vx);
     //init_vector(&vy, 0, 1, 0);  //  local orb someday.
 
     *p2num_wann=0;
 
+    // initialize the number of wannier orbitals, and do malloc
     for(i=0;i<num_pjgroup;i++){
         for(ii=0;ii<number_of_atomtypes;ii++){
             if(strcmp(pjgroup[i].element, name_of_atoms_each[ii])==0)
@@ -870,9 +929,37 @@ void derive_projection_info(int *  p2num_wann,
     if(flag_soc==1) *p2num_wann *= 2;
     *p2orb_info=(wannorb *) malloc(sizeof(wannorb)*(*p2num_wann));
 
-
+    // derive values from string
     iproj=0;
     for(i=0;i<num_pjgroup;i++){
+        // firstly, derive r, vz, vx, vy of this projection group
+        sscanf(pjgroup[i].zaxis_str, "%lf,%lf,%lf", &(vz.x), &(vz.y), &(vz.z));
+        sscanf(pjgroup[i].xaxis_str, "%lf,%lf,%lf", &(vx.x), &(vx.y), &(vx.z));
+        sscanf(pjgroup[i].yaxis_str, "%lf,%lf,%lf", &(vy.x), &(vy.y), &(vy.z));
+        // normalization
+        vz = vector_normalization(vz);
+        vx = vector_normalization(vx);
+        vy = vector_normalization(vy);
+        sscanf(pjgroup[i].radial_str, "%d", &r);
+        //sscanf(pjgroup[i].zona_str, "%d", &zona); // tag 'zona' ignored currently(2022-09)
+        // vx, vy, vz must form an unitary axis.
+        eps=1E-2;
+        if( fabs(dot_product(vz, vx)) > eps ){
+            print_error("projection axes (local axes) are not orthogonal enough");
+            exit(1);
+        } else {
+            // make x-axis more orthogonal to z-axis
+            // vx = norm (vz \cross (vx_old \cross vz) )
+            vx = cross_product(vz,cross_product(vx,vz));
+            vx = vector_normalization(vx);
+        }
+        if( fabs(dot_product(vz, vy)) > eps || fabs(dot_product(vx, vy)) > eps ){
+            sprintf(msg, "WARNING: (local axis) ProjectionGroup No. %d, since the input local axes are not orthogonal enough, y-axis are set automatically as: \"y-axis = z-axis \\cross x-axis\", please check the results.\n", i);
+            print_msg(msg);
+            vy = cross_product(vz, vx);
+        }
+
+        // then find the first occurrence of this element
         site_first=0;
         for(ii=0;ii<number_of_atomtypes;ii++){
             if(strcmp(pjgroup[i].element, name_of_atoms_each[ii])==0)
@@ -890,13 +977,13 @@ void derive_projection_info(int *  p2num_wann,
                     else if( strcmp(pjgroup[i].orbname[j],"d")==0) l=2;
                     else if( strcmp(pjgroup[i].orbname[j],"f")==0) l=3;
                     else{
-                        fprintf(stderr, "unknown orbital definition\n");
+                        print_error("unknown orbital definition\n");
                         exit(1);
                     }
                     for(mr=1;mr<(2*l+2);mr++){
-                        init_wannorb((*p2orb_info + (iproj++)), site, l, mr, 0, r, vz, vx);
+                        init_wannorb((*p2orb_info + (iproj++)), site, l, mr, 0, r, vz, vx, vy);
                         if(flag_soc==1 && code_type!=1)
-                            init_wannorb((*p2orb_info + (iproj++)), site, l, mr, 1, r, vz, vx);
+                            init_wannorb((*p2orb_info + (iproj++)), site, l, mr, 1, r, vz, vx, vy);
 #ifdef __DEBUG
                         printf("ln487: orbinfo: %10.5lf%10.5lf%10.5lf%5d%5d%5d\n", site.x,site.y,site.z, l, mr, r);
 #endif
@@ -920,20 +1007,22 @@ void derive_projection_info(int *  p2num_wann,
                     else if( strcmp(pjgroup[i].orbname[j],"fx(x2-3y2)")==0){ l=3; mr=6;}
                     else if( strcmp(pjgroup[i].orbname[j],"fy(3x2-y2)")==0){ l=3; mr=7;}
                     else{
-                        fprintf(stderr, "wrong defined orbital: \"%s\"\n", pjgroup[i].orbname[j] );
+                        sprintf(msg, "wrong defined orbital: \"%s\"\n", pjgroup[i].orbname[j] );
+                        print_error(msg);
                         exit(1);
                     }
 
-                    init_wannorb((*p2orb_info+(iproj++)), site, l, mr, 0, r, vz, vx);
+                    init_wannorb((*p2orb_info+(iproj++)), site, l, mr, 0, r, vz, vx, vy);
                     if(flag_soc==1 && code_type!=1)
-                        init_wannorb((*p2orb_info+(iproj++)), site, l, mr, 1, r, vz, vx);
+                        init_wannorb((*p2orb_info+(iproj++)), site, l, mr, 1, r, vz, vx, vy);
                 }
             }
         }
     }
     if(flag_soc==1 && code_type==1){
+        // for DFT code such as VASP
         if( iproj*2 != *p2num_wann){
-            fprintf(stderr, "ERROR!!! error when deriving orbital info at readinput.c\n");
+            print_error("ERROR!!! error when deriving orbital info at readinput.c\n");
             exit(1);
         }
         for(iproj=0;iproj<*p2num_wann/2;iproj++){
@@ -943,7 +1032,8 @@ void derive_projection_info(int *  p2num_wann,
             r    = (*p2orb_info+iproj)->r;
             vz   = (*p2orb_info+iproj)->axis[2];
             vx   = (*p2orb_info+iproj)->axis[0];
-            init_wannorb((*p2orb_info + *p2num_wann/2 + iproj), site, l, mr, 1, r, vz, vx);
+            vy   = (*p2orb_info+iproj)->axis[1];
+            init_wannorb((*p2orb_info + *p2num_wann/2 + iproj), site, l, mr, 1, r, vz, vx, vy);
         }
     }
 }
@@ -1334,7 +1424,7 @@ void print_msg(char * msg){
     FILE * fstdout;
     fstdout = fopen("wannsymm.out", "a");
     fprintf(fstdout, "%s", msg);
-    //fprintf(fstdout, "\n");   // "\n" is aborbed in the variable msg
+    //fprintf(fstdout, "\n");   // "\n" is absorbed in the variable msg
     fclose(fstdout);
 }
 
