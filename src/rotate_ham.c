@@ -210,7 +210,7 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     //fout=fopen(foutname, "w");
     for( irpt_out=0; irpt_out < nrvec; irpt_out++){
         fout=fopen(foutname, "a");
-        fprintf(fout, "Symm No. %d, progress %5.2lf%% (%d/%d)\n", index_of_sym, (double)(irpt_out+1)/(double)nrvec*100, irpt_out+1, nrvec);
+        fprintf(fout, "Symm No. %d, progress %5.2lf%% (%d/%d)\n", index_of_sym+1, (double)(irpt_out+1)/(double)nrvec*100, irpt_out+1, nrvec);
         fclose(fout);
         rvec_out = hout->rvec[irpt_out];
         rvec_out_invsed = vector_rotate(rvec_out, inv_rotation);
@@ -678,3 +678,4 @@ void combine_rot_with_local_axis(double rot_combined[3][3], double rotation[3][3
     matrix3x3_inverse(mtmp, axes_out);
     matrix3x3_dot(rot_combined, mtmp, rot_combined);
 }
+
