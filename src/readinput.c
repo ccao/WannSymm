@@ -584,7 +584,7 @@ void parseline( char tag[MAXLEN], char arg[MAXLEN], char inputline[MAXLEN], int 
             flag_inquota = 1-flag_inquota;
             continue;
         }
-        if( flag_inquota==0 && metdivid==0 && line[i]=='=' || line[i]==':'){
+        if( flag_inquota==0 && metdivid==0 && (line[i]=='=' || line[i]==':') ){ 
             metdivid++;
             continue;
         }
@@ -812,6 +812,7 @@ void read_projection_info(projgroup pjgroup[MAXLEN],
         ii=0;
         while(arg[ii] != '\0'){
             if(arg[ii]==':'){
+                ii++;
                 continue;
             }
             parseline(tmptag, tmparg, arg+ii, 0);
@@ -947,15 +948,18 @@ void derive_projection_info(int *  p2num_wann,
         if( fabs(dot_product(vz, vx)) > eps ){
             print_error("projection axes (local axes) are not orthogonal enough");
             exit(1);
-        } else {
+        } else if(fabs(dot_product(vz, vx)) > 1E-8) {
             // make x-axis more orthogonal to z-axis
             // vx = norm (vz \cross (vx_old \cross vz) )
             vx = cross_product(vz,cross_product(vx,vz));
             vx = vector_normalization(vx);
         }
         if( fabs(dot_product(vz, vy)) > eps || fabs(dot_product(vx, vy)) > eps ){
-            sprintf(msg, "WARNING: (local axis) ProjectionGroup No. %d, since the input local axes are not orthogonal enough, y-axis are set automatically as: \"y-axis = z-axis \\cross x-axis\", please check the results.\n", i);
+            print_msg("===========================\n");
+            sprintf(msg, "WARNING: (local axis)\nProjection Group No. %d, since the input local axes are not orthogonal enough, y-axis are set automatically as: \"y-axis = z-axis \\cross x-axis\"\nplease check the results.\n", i);
             print_msg(msg);
+            print_msg("Manually set y-axis correctly to remove this WARNING.\n");
+            print_msg("===========================\n");
             vy = cross_product(vz, vx);
         }
 
@@ -984,9 +988,6 @@ void derive_projection_info(int *  p2num_wann,
                         init_wannorb((*p2orb_info + (iproj++)), site, l, mr, 0, r, vz, vx, vy);
                         if(flag_soc==1 && code_type!=1)
                             init_wannorb((*p2orb_info + (iproj++)), site, l, mr, 1, r, vz, vx, vy);
-#ifdef __DEBUG
-                        printf("ln487: orbinfo: %10.5lf%10.5lf%10.5lf%5d%5d%5d\n", site.x,site.y,site.z, l, mr, r);
-#endif
                     }
                 }else{
                     if(      strcmp(pjgroup[i].orbname[j],"pz")==0){ l=1; mr=1;}

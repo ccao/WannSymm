@@ -172,7 +172,7 @@ double vector_norm(vector v)
 vector vector_normalization(vector v)
 {
     vector out;
-    out = vector_scale(1.0/dot_product(v,v), v);
+    out = vector_scale(1.0/vector_norm(v), v);
     return out;
 }
 
