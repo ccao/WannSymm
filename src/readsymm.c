@@ -23,6 +23,7 @@ void readsymm(char * fn_symm, double rotations[][3][3], double translations[][3]
     char msg[MAXLEN];
     int i,j,k;
     int flag_tmp;
+    double rotangle;
 
     fin=fopen(fn_symm, "r");
 
@@ -44,15 +45,18 @@ void readsymm(char * fn_symm, double rotations[][3][3], double translations[][3]
         }
     }
     
-    int irotations[MAX_NUM_of_SYMM][3][3];
 
     for(i=0;i<*p2nsymm;i++){
         fgets(line, MAXLEN, fin);
-        for(j=0;j<3;j++){
-            fgets(line, MAXLEN, fin);
-            sscanf(line, "%d%d%d", &irotations[i][j][0], &irotations[i][j][1], &irotations[i][j][2]);
-            for(k=0; k<3; k++){
-                rotations[i][j][k] = (double) irotations[i][j][k];
+        parseline(tag, arg, line, 1);
+        if( strcmp(tag, "angle") == 0 ){
+            sscanf(arg, "%lf", &rotangle);
+            // convert angle into rotation matrix
+            // this part has not been finished 
+        } else {
+            for(j=0;j<3;j++){
+                fgets(line, MAXLEN, fin);
+                sscanf(line, "%lf%lf%lf", &rotations[i][j][0], &rotations[i][j][1], &rotations[i][j][2]);
             }
         }
         fgets(line, MAXLEN, fin);
