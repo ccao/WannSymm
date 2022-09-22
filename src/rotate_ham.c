@@ -311,6 +311,8 @@ void getrvec_and_site(vector * p2rvec, vector * p2site, vector loc, wannorb * or
     //output: rvec and site of the atom : *p2rvec *p2site
     int    i,j,k,ii,jj,kk;
     vector dis, dis_int, dis_rem, dis_rem_cartesian;
+    char msg[MAXLEN];
+
     init_vector(&dis, 0,0,0);
     init_vector(&dis_int, 0,0,0);
     init_vector(&dis_rem, 0,0,0);
@@ -334,9 +336,9 @@ void getrvec_and_site(vector * p2rvec, vector * p2site, vector loc, wannorb * or
         }
     }
     if( sqrt(dot_product( dis_rem_cartesian, dis_rem_cartesian )) >= eps){
-        fprintf(stderr,"ERROR: can not find rotated rvec and site.\n");
-        fprintf(stderr,"loc=(%10.5lf,%10.5lf,%10.5lf) dis=(%10.5lf,%10.5lf,%10.5lf) dis_int=(%5d%5d%5d) dis_rem=(%10.5lf,%10.5lf,%10.5lf)\n",
+        sprintf(msg,"ERROR: can not find rotated rvec and site.\nloc=(%10.5lf,%10.5lf,%10.5lf) dis=(%10.5lf,%10.5lf,%10.5lf) dis_int=(%5d%5d%5d) dis_rem=(%10.5lf,%10.5lf,%10.5lf)\n",
                 loc.x, loc.y, loc.z, dis.x, dis.y, dis.z, (int)dis_int.x, (int)dis_int.y, (int)dis_int.z, dis_rem.x, dis_rem.y, dis_rem.z);
+        print_error(msg);
         exit(1);
     }
 }

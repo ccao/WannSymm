@@ -974,11 +974,11 @@ void derive_projection_info(int *  p2num_wann,
             vx = vector_normalization(vx);
         }
         if( fabs(dot_product(vz, vy)) > eps || fabs(dot_product(vx, vy)) > eps ){
-            print_msg("===========================\n");
-            sprintf(msg, "WARNING: (local axis)\nProjection Group No. %d, since the input local axes are not orthogonal enough, y-axis are set automatically as: \"y-axis = z-axis \\cross x-axis\"\nplease check the results.\n", i);
+            //print_msg("===========================\n");
+            sprintf(msg, "WARNING: (local axis) Projection Group No. %d, y-axis is set automatically as: \"y-axis = z-axis \\cross x-axis\". Please check the results.\n", i);
             print_msg(msg);
-            print_msg("Manually set y-axis correctly to remove this WARNING.\n");
-            print_msg("===========================\n");
+            //print_msg("Manually set y-axis correctly to remove this WARNING.\n");
+            //print_msg("===========================\n");
             vy = cross_product(vz, vx);
         }
 
