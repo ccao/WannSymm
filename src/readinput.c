@@ -808,7 +808,17 @@ void read_projection_info(projgroup pjgroup[MAXLEN],
         strcpy(pjgroup[i].zona_str, "1.0");
 
         // then read values for each tags
-        strcpy(pjgroup[i].element, tag);
+        if( (strcmp(tag,"f")==0 || strcmp(tag,"c")==0) && arg[0]>47 && arg[0]<58 ){
+            // f : fractional coordinates
+            // c : Cartesian coordinates
+            // in this case, "element" site is represented by its coordinates
+            parseline(tmptag, arg, arg, 0);
+            pjgroup[i].element[0] = tag[0];
+            pjgroup[i].element[1] = '=';
+            strcpy(pjgroup[i].element+2, tmptag);
+        } else {
+            strcpy(pjgroup[i].element, tag);
+        }
         ii=0;
         while(arg[ii] != '\0'){
             if(arg[ii]==':'){
@@ -816,27 +826,27 @@ void read_projection_info(projgroup pjgroup[MAXLEN],
                 continue;
             }
             parseline(tmptag, tmparg, arg+ii, 0);
-            if(strcmp(tmptag,"x")==0 && tmparg[0]>47 && tmparg[0]<58 ){
+            if(strcmp(tmptag,"x")==0 && is_str_begin_with_number(tmparg) ){
                 // tmptag is x and tmparg is a number in [0-9]
                 parseline(tmptag, tmparg, tmparg, 0);
                 strcpy(pjgroup[i].xaxis_str, tmptag);
                 *p2flag_local_axis += 1;
             }
-            else if(strcmp(tmptag,"y")==0 && tmparg[0]>47 && tmparg[0]<58 ){
+            else if(strcmp(tmptag,"y")==0 && is_str_begin_with_number(tmparg) ){
                 parseline(tmptag, tmparg, tmparg, 0);
                 strcpy(pjgroup[i].yaxis_str, tmptag);
                 *p2flag_local_axis += 1;
             }
-            else if(strcmp(tmptag,"z")==0 && tmparg[0]>47 && tmparg[0]<58 ){
+            else if(strcmp(tmptag,"z")==0 && is_str_begin_with_number(tmparg) ){
                 parseline(tmptag, tmparg, tmparg, 0);
                 strcpy(pjgroup[i].zaxis_str, tmptag);
                 *p2flag_local_axis += 1;
             }
-            else if(strcmp(tmptag,"r")==0 && tmparg[0]>47 && tmparg[0]<58 ){
+            else if(strcmp(tmptag,"r")==0 && is_str_begin_with_number(tmparg) ){
                 parseline(tmptag, tmparg, tmparg, 0);
                 strcpy(pjgroup[i].radial_str, tmptag);
             }
-            else if(strcmp(tmptag,"zona")==0 && tmparg[0]>47 && tmparg[0]<58 ){
+            else if(strcmp(tmptag,"zona")==0 && is_str_begin_with_number(tmparg) ){
                 parseline(tmptag, tmparg, tmparg, 0);
                 strcpy(pjgroup[i].zona_str, tmptag);
             }
@@ -900,10 +910,14 @@ void derive_projection_info(int *  p2num_wann,
     vector vx,vy,vz;
     vector cart_vx, cart_vy, cart_vz;
     vector site;
+    vector rawsite;
+    double inv_lattice[3][3];
     int l, mr, r;
     double eps;
     char msg[MAXLEN];
+    int number_of_atoms_in_pjgroup;
 
+    matrix3x3_inverse(inv_lattice, lattice);
     r=1;    // set to 1 by deafult
     init_vector(&cart_vz, 0, 0, 1);  //  Local orbital set to default now,
     init_vector(&cart_vx, 1, 0, 0);  //  will add support for self defined 
@@ -915,16 +929,21 @@ void derive_projection_info(int *  p2num_wann,
 
     // initialize the number of wannier orbitals, and do malloc
     for(i=0;i<num_pjgroup;i++){
-        for(ii=0;ii<number_of_atomtypes;ii++){
-            if(strcmp(pjgroup[i].element, name_of_atoms_each[ii])==0)
-                break;
+        if( pjgroup[i].element[1] == '=' && isnumber(pjgroup[i].element[2]) ){
+            number_of_atoms_in_pjgroup=1;
+        } else{
+            for(ii=0;ii<number_of_atomtypes;ii++){
+                if(strcmp(pjgroup[i].element, name_of_atoms_each[ii])==0)
+                    break;
+            }
+            number_of_atoms_in_pjgroup = number_of_atoms_each[ii];
         }
         for(j=0;j<pjgroup[i].npj; j++){
-            if(      pjgroup[i].orbname[j][1] != '\0') *p2num_wann += 1*number_of_atoms_each[ii];
-            else if( pjgroup[i].orbname[j][0] == 's')  *p2num_wann += 1*number_of_atoms_each[ii];
-            else if( pjgroup[i].orbname[j][0] == 'p')  *p2num_wann += 3*number_of_atoms_each[ii];
-            else if( pjgroup[i].orbname[j][0] == 'd')  *p2num_wann += 5*number_of_atoms_each[ii];
-            else if( pjgroup[i].orbname[j][0] == 'f')  *p2num_wann += 7*number_of_atoms_each[ii];
+            if(      pjgroup[i].orbname[j][1] != '\0') *p2num_wann += 1*number_of_atoms_in_pjgroup;
+            else if( pjgroup[i].orbname[j][0] == 's')  *p2num_wann += 1*number_of_atoms_in_pjgroup;
+            else if( pjgroup[i].orbname[j][0] == 'p')  *p2num_wann += 3*number_of_atoms_in_pjgroup;
+            else if( pjgroup[i].orbname[j][0] == 'd')  *p2num_wann += 5*number_of_atoms_in_pjgroup;
+            else if( pjgroup[i].orbname[j][0] == 'f')  *p2num_wann += 7*number_of_atoms_in_pjgroup;
         }
     }
     if(flag_soc==1) *p2num_wann *= 2;
@@ -965,15 +984,32 @@ void derive_projection_info(int *  p2num_wann,
 
         // then find the first occurrence of this element
         site_first=0;
-        for(ii=0;ii<number_of_atomtypes;ii++){
-            if(strcmp(pjgroup[i].element, name_of_atoms_each[ii])==0)
-                break;
-            site_first += number_of_atoms_each[ii];
+        if( pjgroup[i].element[1] == '=' && isnumber(pjgroup[i].element[2]) ){
+            site_first = -1;
+            number_of_atoms_in_pjgroup = 1;
+            sscanf(pjgroup[i].element+2, "%lf,%lf,%lf", &(rawsite.x), &(rawsite.y), &(rawsite.z));
+            if(pjgroup[i].element[0] == 'f'){
+                site=rawsite;
+            } else if (pjgroup[i].element[0] == 'c') {
+                site = vector_rotate(rawsite, inv_lattice);
+            } else {
+                print_error("error reading projections\n");
+                exit(1);
+            }
+        } else {
+            for(ii=0;ii<number_of_atomtypes;ii++){
+                if(strcmp(pjgroup[i].element, name_of_atoms_each[ii])==0)
+                    break;
+                site_first += number_of_atoms_each[ii];
+            }
+            number_of_atoms_in_pjgroup = number_of_atoms_each[ii];
         }
-        for(isite=site_first; isite < (site_first+number_of_atoms_each[ii]); isite++){
-            init_vector(&site, atom_positions[isite][0], 
-                               atom_positions[isite][1], 
-                               atom_positions[isite][2]);
+        for(isite=site_first; isite < (site_first+number_of_atoms_in_pjgroup); isite++){
+            if(isite >= 0){
+                init_vector(&site, atom_positions[isite][0], 
+                                   atom_positions[isite][1], 
+                                   atom_positions[isite][2]);
+            }
             for(j=0; j < pjgroup[i].npj; j++){
                 if( pjgroup[i].orbname[j][1] == '\0'){
                     if(      strcmp(pjgroup[i].orbname[j],"s")==0) l=0;
@@ -1117,6 +1153,25 @@ int isletter(char candidate){
     }
     else{
             return 0;
+    }
+}
+
+int isnumber(char candidate){
+    if(candidate>47 && candidate<58){
+        return 1;
+    } else{
+        return 0;
+    }
+}
+
+int is_str_begin_with_number(char * in){
+    // str is begin with number or not, space make sense
+    if(isnumber(in[0])){
+        return 1;
+    } else if ( (in[0]=='-' || in[0]=='+') && isnumber(in[1])){
+        return 1;
+    } else {
+        return 0;
     }
 }
 

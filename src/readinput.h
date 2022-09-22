@@ -43,13 +43,13 @@ typedef struct __projgroup {
     // one projection group is one line in projection section of input file
     int npj;      // total projections written in this line
     int norb;     // number of orbital related to this line, e.g. (nonsoc) s::1 p:3  s;p::4  s;p;d::9
-    char element[32];       // string of element name (also can be site coordinates)
+    char element[MAXLEN];       // string of element name (also can be site coordinates)
     char orbname[64][32];   // string of orbital name (also can be angular momentum specified by l and mr.Directly specified l and mr are not supported yet 22-07-17.)
-    char zaxis_str[32];     // string storing the z-axis
-    char xaxis_str[32];     // string storing the x-axis
-    char yaxis_str[32];     // string storing the y-axis
-    char radial_str[32];    // string storing the index for radial function
-    char zona_str[32];      // string storing the Z/a value
+    char zaxis_str[MAXLEN];     // string storing the z-axis
+    char xaxis_str[MAXLEN];     // string storing the x-axis
+    char yaxis_str[MAXLEN];     // string storing the y-axis
+    char radial_str[64];    // string storing the index for radial function
+    char zona_str[64];      // string storing the Z/a value
 } projgroup;
 
 void readinput(char * fn_input,
@@ -127,6 +127,8 @@ static void show_spg_dataset(double lattice[3][3],
                  FILE * fout);
 
 int isletter(char candidate);
+int isnumber(char candidate);
+int is_str_begin_with_number(char * in);
 //vector find_pos(double pos[MAX_NUM_of_atoms][3], double lattice[3][3], int natoms, vector site);
 void derive_magmom_from_string(double * magmom_array, char * magmom_string, int number_of_atoms_total, int flag_soc);
 void derive_magmom_from_array(vector * magmom, double * magmom_array,int natom, int flag_soc, vector SAXIS);
