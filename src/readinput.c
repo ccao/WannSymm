@@ -808,7 +808,7 @@ void read_projection_info(projgroup pjgroup[MAXLEN],
         strcpy(pjgroup[i].zona_str, "1.0");
 
         // then read values for each tags
-        if( (strcmp(tag,"f")==0 || strcmp(tag,"c")==0) && arg[0]>47 && arg[0]<58 ){
+        if( (strcmp(tag,"f")==0 || strcmp(tag,"c")==0) && is_str_begin_with_number(arg) ){
             // f : fractional coordinates
             // c : Cartesian coordinates
             // in this case, "element" site is represented by its coordinates
@@ -929,7 +929,7 @@ void derive_projection_info(int *  p2num_wann,
 
     // initialize the number of wannier orbitals, and do malloc
     for(i=0;i<num_pjgroup;i++){
-        if( pjgroup[i].element[1] == '=' && isnumber(pjgroup[i].element[2]) ){
+        if( pjgroup[i].element[1] == '=' && is_str_begin_with_number(pjgroup[i].element+2) ){
             number_of_atoms_in_pjgroup=1;
         } else{
             for(ii=0;ii<number_of_atomtypes;ii++){
@@ -984,7 +984,7 @@ void derive_projection_info(int *  p2num_wann,
 
         // then find the first occurrence of this element
         site_first=0;
-        if( pjgroup[i].element[1] == '=' && isnumber(pjgroup[i].element[2]) ){
+        if( pjgroup[i].element[1] == '=' && is_str_begin_with_number(pjgroup[i].element+2) ){
             site_first = -1;
             number_of_atoms_in_pjgroup = 1;
             sscanf(pjgroup[i].element+2, "%lf,%lf,%lf", &(rawsite.x), &(rawsite.y), &(rawsite.z));
