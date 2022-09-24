@@ -5,7 +5,7 @@
 //#define __DEBUG_rot_orb
 //#define __DEBUG_partial_d
 
-void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double rotation[3][3], double translation[3], wannorb * orb_info, int flag_soc)
+void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double rotation[3][3], double translation[3], wannorb * orb_info, int flag_soc, int flag_local_axis, int index_of_sym)
 {
     //--This function generate a new Hamiltonian by performing the symmetry operation defined by the input 
     //  rotation and translation.
@@ -57,6 +57,7 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     vector loc_in, loc_out;
     
     //double rotation[3][3];
+    double rot_combined[3][3];
     double inv_rotation[3][3];
     double inv_translation[3];
     int norb;
@@ -72,6 +73,7 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
 
     int ii_out, ii_in;
     int irpt_out, iorb_out, jorb_out;
+    int iorb_in;
     vector site_in1_old, site_in2_old;
     wanndata htmp;
 
@@ -208,7 +210,7 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     //fout=fopen(foutname, "w");
     for( irpt_out=0; irpt_out < nrvec; irpt_out++){
         fout=fopen(foutname, "a");
-        fprintf(fout, "progress %5.2lf%% (%d/%d)\n", (double)(irpt_out+1)/(double)nrvec*100, irpt_out+1, nrvec);
+        fprintf(fout, "Symm No. %d, progress %5.2lf%% (%d/%d)\n", index_of_sym+1, (double)(irpt_out+1)/(double)nrvec*100, irpt_out+1, nrvec);
         fclose(fout);
         rvec_out = hout->rvec[irpt_out];
         rvec_out_invsed = vector_rotate(rvec_out, inv_rotation);
@@ -245,6 +247,22 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
                                                             site_in1, r1, l1, mr1, ms1,
                                                             site_in2, r2, l2, mr2, ms2);
                                     if(ii_in < 0) continue;
+                                    if(flag_local_axis > 0){
+                                        //matrix3x3_dot(rot_combined, rotation, );
+                                        iorb_in = ii_in % norb;
+                                        combine_rot_with_local_axis(rot_combined, rotation, orb_info, iorb_in, iorb_out);
+                                        get_axis_angle_of_rotation(rot_axis, &rot_angle, &inv_flag, rot_combined, lattice);
+                                        s_rot = (dcomplex *)malloc(sizeof(dcomplex)*2*2);
+                                        //get s_rot with input (axis,angle,inv)
+                                        rotate_spinor(s_rot, rot_axis, rot_angle, inv_flag);
+
+                                        for (l=0;l<=3;l++){
+                                            //get orb_rot with input (l,axis,angle,inv)
+                                            N = 2*l + 1;
+                                            orb_rot[l] = (dcomplex *)malloc(sizeof(dcomplex)*N*N);
+                                            rotate_cubic( orb_rot[l], l, rot_axis, rot_angle, inv_flag); 
+                                        }
+                                    }
                                     // roted_H(l1,l2) = D(l1) · S · H(l1,l2) · S.conj.transe · D(l2).conj.transe
                                     hout->ham[ii_out] += orb_rot[l1][(2*l1+1)*(mr_i-1)+mr1-1] *
                                                          s_rot[2*ms_i + ms1] * 
@@ -293,6 +311,8 @@ void getrvec_and_site(vector * p2rvec, vector * p2site, vector loc, wannorb * or
     //output: rvec and site of the atom : *p2rvec *p2site
     int    i,j,k,ii,jj,kk;
     vector dis, dis_int, dis_rem, dis_rem_cartesian;
+    char msg[MAXLEN];
+
     init_vector(&dis, 0,0,0);
     init_vector(&dis_int, 0,0,0);
     init_vector(&dis_rem, 0,0,0);
@@ -316,9 +336,9 @@ void getrvec_and_site(vector * p2rvec, vector * p2site, vector loc, wannorb * or
         }
     }
     if( sqrt(dot_product( dis_rem_cartesian, dis_rem_cartesian )) >= eps){
-        fprintf(stderr,"ERROR: can not find rotated rvec and site.\n");
-        fprintf(stderr,"loc=(%10.5lf,%10.5lf,%10.5lf) dis=(%10.5lf,%10.5lf,%10.5lf) dis_int=(%5d%5d%5d) dis_rem=(%10.5lf,%10.5lf,%10.5lf)\n",
+        sprintf(msg,"ERROR: can not find rotated rvec and site.\nloc=(%10.5lf,%10.5lf,%10.5lf) dis=(%10.5lf,%10.5lf,%10.5lf) dis_int=(%5d%5d%5d) dis_rem=(%10.5lf,%10.5lf,%10.5lf)\n",
                 loc.x, loc.y, loc.z, dis.x, dis.y, dis.z, (int)dis_int.x, (int)dis_int.y, (int)dis_int.z, dis_rem.x, dis_rem.y, dis_rem.z);
+        print_error(msg);
         exit(1);
     }
 }
@@ -640,3 +660,24 @@ void trsymm_ham(wanndata * hout, wanndata * hin, wannorb * orb_info, int flag_so
         }
     }
 }
+
+void combine_rot_with_local_axis(double rot_combined[3][3], double rotation[3][3], wannorb * orb_info, int io_in, int io_out){
+    // rot_combined =  inv(Axes_out) * rot * Axes_in
+    double axes_in[3][3];
+    double axes_out[3][3];
+    double mtmp[3][3];
+    int ii;
+
+    for(ii=0;ii<3;ii++){
+        axes_in[ii][0] = orb_info[io_in].axis[ii].x;
+        axes_in[ii][1] = orb_info[io_in].axis[ii].y;
+        axes_in[ii][2] = orb_info[io_in].axis[ii].z;
+        axes_out[ii][0] = orb_info[io_out].axis[ii].x;
+        axes_out[ii][1] = orb_info[io_out].axis[ii].y;
+        axes_out[ii][2] = orb_info[io_out].axis[ii].z;
+    }
+    matrix3x3_dot(rot_combined, rotation, axes_in);
+    matrix3x3_inverse(mtmp, axes_out);
+    matrix3x3_dot(rot_combined, mtmp, rot_combined);
+}
+

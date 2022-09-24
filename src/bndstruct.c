@@ -195,7 +195,7 @@ void bnd_write_characters(const char * fnout, int ikpt, vector kpt, smallgroup *
     //fprintf(fbndsymcha, "kpt No. %5d:%10.7lf %10.7lf %10.7lf\n", ikpt+1, kpt.x, kpt.y, kpt.z);
     fprintf(fbndsymcha, "kpt:%10.7lf %10.7lf %10.7lf\n", kpt.x, kpt.y, kpt.z);
     //output symmetries that keep kpt invariant
-    fprintf(fbndsymcha, "Related symmetries:\n");
+    fprintf(fbndsymcha, "SmallGroupOrder= %d , Related symmetries:\n", sgrp->order);
     fclose(fbndsymcha);
     for(sgrpi=0; sgrpi < sgrp->order; sgrpi++){
         isymm = sgrp->element[sgrpi];
@@ -245,7 +245,7 @@ void bnd_write_eigenvalues(const char * fnout, int ikpt, vector kpt, smallgroup 
     //fprintf(fbndsymeig, "kpt No. %5d:%10.7lf %10.7lf %10.7lf\n", ikpt+1, kpt.x, kpt.y, kpt.z);
     fprintf(fbndsymeig, "kpt:%10.7lf %10.7lf %10.7lf\n", kpt.x, kpt.y, kpt.z);
     //output symmetries that keep kpt invariant
-    fprintf(fbndsymeig, "Related symmetries:\n");
+    fprintf(fbndsymeig, "SmallGroupOrder= %d , Related symmetries:\n", sgrp->order);
     fclose(fbndsymeig);
     for(sgrpi=0; sgrpi<sgrp->order; sgrpi++){
         isymm = sgrp->element[sgrpi];
@@ -309,3 +309,40 @@ void bnd_write_bands(FILE * fbands, int norb, int nkpath, int nk_per_kpath, doub
         fprintf(fbands, "\n");
     }
 }
+
+//--////developing
+//--//void bnd_write_bands_splitrep(const char * fnout_prefix, double kpath_len, smallgroup * sgrp, 
+//--//                  double lattice[3][3], double rotations[][3][3], double translations[][3], int TR[],
+//--//                  double * eig_hk, int * ndegen, dcomplex ** sym_chas, int norb, int flag_soc,
+//--//                  int en_print_prec, int bnd_print_len){
+//--//    char * fnout[MAXLEN];
+//--//    char * rep[MAXLEN];
+//--//    char * chas[MAXLEN];
+//--//    FILE * fout;
+//--//
+//--//    for(io=0; io<norb; io++){
+//--//        bnd_get_rep(rep, sgrp, chas, flag_soc);
+//--//        sprintf(fout, "%s_%s", fnout_prefix, rep);
+//--//        fout = fopen(fnout, "a");
+//--//        if(ikpt%nk_per_kpath != 0){
+//--//            kpath_len += 2 * PI * vector_norm(vector_rotate(vector_sub(kvecs[ikpt], kvecs[ikpt-1]), rec_latt));
+//--//        }
+//--//        fprintf(fout, "%15.9lf %*.*lf", kpath_len, 21, 15, ebands[ikpt][io]);
+//--//        fprintf(fout, "  # %s", rep);
+//--//        fprintf(fout, "\n");
+//--//        if(ikpt%nk_per_kpath == nk_per_kpath - 1 ){
+//--//            fprintf(fout, "\n");
+//--//        }
+//--//        fclose(fout);
+//--//    }
+//--//}
+//--//
+//--////developing
+//--//void bnd_get_rep(char * rep, smallgroup * sgrp, dcomplex * sym_chas, int flag_soc){
+//--//    rep="unknown";
+//--//    if(flag_soc == 1){
+//--//    }
+//--//    else{
+//--//    }
+//--//}
+

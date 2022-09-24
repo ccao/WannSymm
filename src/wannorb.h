@@ -21,7 +21,7 @@ typedef struct __wannorb {
  */
 } wannorb;
 
-void init_wannorb(wannorb * orb,vector site, int l, int mr, int ms, int r, vector axisz, vector axisx);
+void init_wannorb(wannorb * orb,vector site, int l, int mr, int ms, int r, vector axisz, vector axisx, vector axisy);
 int find_index_of_wannorb(wannorb * wann, int num_wann, vector site, int r, int l, int mr, int ms);//ignored axis in version 0.01
 //void init_wannorb(wannorb * wann, vector * v, int l);
 //void copy_wannorb(wannorb * target, wannorb source);

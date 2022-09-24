@@ -71,6 +71,7 @@ int main(int argc, char ** argv){
     int nsymm;                                  //number of symmetry operations (get from spglib)
     wannorb * orb_info;                         //information for each wannier orbital in one w-s unit cell
     int norb, nwann;                            //number of wannier orbitals in one w-s unit cell
+    int flag_local_axis=0;                      //local axis of each site is considered as default (<=0) or not (>=1)
 
     vector kpt;                                 //Kpoint for calculating bands' character of every symmetry
     int ikpt, nkpt=0;
@@ -217,7 +218,7 @@ int main(int argc, char ** argv){
                   translations, 
                   TR, 
                   magmom,
-                  &nsymm, &orb_info, &nwann, &kpts, &nkpt, &kpaths, klabels, &nkpath, &nk_per_kpath,
+                  &nsymm, &orb_info, &nwann, &flag_local_axis, &kpts, &nkpt, &kpaths, klabels, &nkpath, &nk_per_kpath,
                   &flag_bands, &flag_chaeig, &flag_chaeig_in_kpath, &flag_restart, &flag_global_trsymm, 
                   &flag_expandrvec, &symm_magnetic_tolerance, &ham_tolerance, &degenerate_tolerance,
                   &flag_everysymm, &flag_output_mem_usage,
@@ -397,10 +398,10 @@ int main(int argc, char ** argv){
                 ham_trsymm.norb = ham_in.norb;
                 init_wanndata(&ham_trsymm);
                 trsymm_ham( &ham_trsymm, &ham_in, orb_info, flag_soc);
-                rotate_ham(ham_out+i, &ham_trsymm, lattice, rotations[i], translations[i], orb_info, flag_soc);
+                rotate_ham(ham_out+i, &ham_trsymm, lattice, rotations[i], translations[i], orb_info, flag_soc, flag_local_axis, i);
                 finalize_wanndata(ham_trsymm);
             } else{
-                rotate_ham(ham_out+i, &ham_in, lattice, rotations[i], translations[i], orb_info, flag_soc);
+                rotate_ham(ham_out+i, &ham_in, lattice, rotations[i], translations[i], orb_info, flag_soc, flag_local_axis, i);
             }
             real_time_elapsed = difftime( time(NULL), tm_start);
             cpu_time_used     = ( (double) ( clock() - clk_start) ) / CLOCKS_PER_SEC;
@@ -690,11 +691,11 @@ int main(int argc, char ** argv){
 
         fbndsymcha = fopen(fn_out_cha, "w");
         if(nkpt > 1)
-            fprintf(fbndsymcha, "Characters of symmetry operations    nkpt=%d\n\n", nkpt);
+            fprintf(fbndsymcha,  "Characters of symmetry operations    nkpt= %d  nbnd= %d\n\n", nkpt, norb);
         fclose(fbndsymcha);
         fbndsymeig = fopen(fn_out_eig, "w");
         if(nkpt > 1)
-            fprintf(fbndsymeig, "Eigenvalues of symmetry operations    nkpt=%d\n\n", nkpt);
+            fprintf(fbndsymeig, "Eigenvalues of symmetry operations    nkpt= %d  nbnd= %d\n\n", nkpt, norb);
         fclose(fbndsymeig);
         nerr = 1;
         for(ikpt=0; ikpt<nkpt && nerr!=-1 ; ikpt++){
