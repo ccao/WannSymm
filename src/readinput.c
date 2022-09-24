@@ -853,7 +853,7 @@ void read_projection_info(projgroup pjgroup[MAXLEN],
             else {
                 // orbital definition
                 for(jj=0; tmptag[jj] != '\0'; jj++){
-                    if(tmptag[jj]==59){
+                    if(tmptag[jj]==',' || tmptag[jj]==';'){
                         pjgroup[i].orbname[j++][k] = '\0';
                         k=0;
                     }
