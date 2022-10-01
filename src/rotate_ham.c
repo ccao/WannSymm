@@ -322,10 +322,7 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
         }
     }
 
-    free(s_rot);
-    for (l=0;l<=3;l++){
-        free(orb_rot[l]);
-    }
+
     if(flag_local_axis > 0){
         for(ii=0;ii<norb*norb;ii++){
             free(o2o_s_rot[ii]);
@@ -336,6 +333,11 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
         }
         free(o2o_s_rot);
         free(o2o_orb_rot);
+    } else {
+        free(s_rot);
+        for (l=0;l<=3;l++){
+            free(orb_rot[l]);
+        }
     }
 }
 
