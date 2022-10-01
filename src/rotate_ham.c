@@ -67,6 +67,8 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     int N;
     dcomplex * orb_rot[MAX_L+1];
     dcomplex * s_rot;
+    dcomplex *** o2o_orb_rot;    // orb-to-orb orbital-rotation matrix with local-axis considered
+    dcomplex ** o2o_s_rot;               // orb-to-orb spin-rotation matrix with local-axis considered
     int inv_flag;
     int r, r1, r2, l, l1, l2, mr_i, mr_j, mr1, mr2, ms_i, ms_j, ms1, ms2;
     dcomplex Ham_component;
@@ -85,45 +87,68 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
 
     get_axis_angle_of_rotation(rot_axis, &rot_angle, &inv_flag, rotation, lattice);
 
-    s_rot = (dcomplex *)malloc(sizeof(dcomplex)*2*2);                       //get s_rot with input (axis,angle,inv)
-    rotate_spinor(s_rot, rot_axis, rot_angle, inv_flag);
+    if(flag_local_axis > 0){
+        o2o_s_rot = (dcomplex **)malloc(sizeof(dcomplex *)*norb*norb);
+        o2o_orb_rot = (dcomplex ***)malloc(sizeof(dcomplex **)*norb*norb);
+        for(ii=0;ii<norb*norb;ii++){
+            o2o_s_rot[ii]   = (dcomplex *)malloc(sizeof(dcomplex)*2*2);
+            o2o_orb_rot[ii] = (dcomplex **)malloc(sizeof(dcomplex *)*(MAX_L+1));
+            for (l=0;l<=MAX_L;l++){
+                N = 2*l + 1;
+                o2o_orb_rot[ii][l] = (dcomplex *)malloc(sizeof(dcomplex)*N*N);
+            }
+        }
+        for(iorb=0;iorb<norb;iorb++){
+            for(jorb=0;jorb<norb;jorb++){
+                combine_rot_with_local_axis(rot_combined, rotation, orb_info, iorb, jorb); // rotation from iorb to jorb
+                get_axis_angle_of_rotation(rot_axis, &rot_angle, &inv_flag, rot_combined, lattice);
+                rotate_spinor(o2o_s_rot[iorb*norb+jorb], rot_axis, rot_angle, inv_flag);
+                for (l=0;l<=MAX_L;l++){
+                    rotate_cubic( o2o_orb_rot[iorb*norb+jorb][l], l, rot_axis, rot_angle, inv_flag); 
+                }
+            }
+        }
 
+    } else {
+        s_rot = (dcomplex *)malloc(sizeof(dcomplex)*2*2);                       //get s_rot with input (axis,angle,inv)
+        rotate_spinor(s_rot, rot_axis, rot_angle, inv_flag);
 
-    for (l=0;l<=3;l++){                                                     //get orb_rot with input (l,axis,angle,inv)
-        N = 2*l + 1;
-        orb_rot[l] = (dcomplex *)malloc(sizeof(dcomplex)*N*N);
-        rotate_cubic( orb_rot[l], l, rot_axis, rot_angle, inv_flag); 
-    }
+        for (l=0;l<=MAX_L;l++){                                                     //get orb_rot with input (l,axis,angle,inv)
+            N = 2*l + 1;
+            orb_rot[l] = (dcomplex *)malloc(sizeof(dcomplex)*N*N);
+            rotate_cubic( orb_rot[l], l, rot_axis, rot_angle, inv_flag); 
+        }
 #ifdef __DEBUG_rot_orb
-    // print orbital rotation matrix
-    char fnrot[MAXLEN];
-    FILE * frot;
-    sprintf(fnrot, "orb_rot_%d", mpi_rank+1);
-    frot=fopen( fnrot, "w");
-    fprintf(frot, "orb_rot:\n");
-    for(l=0;l<=3;l++){
-        fprintf(frot, "l=%d\n", l);
-        fprintf(frot, "[\n");
-        for(io=0;io<2*l+1;io++){
-            for(jo=0;jo<2*l+1;jo++){
-                fprintf(frot, "%12.7lf+%12.7lf*i,", creal(orb_rot[l][io*(2*l+1)+jo]), cimag(orb_rot[l][io*(2*l+1)+jo]) );
+        // print orbital rotation matrix
+        char fnrot[MAXLEN];
+        FILE * frot;
+        sprintf(fnrot, "orb_rot_%d", mpi_rank+1);
+        frot=fopen( fnrot, "w");
+        fprintf(frot, "orb_rot:\n");
+        for(l=0;l<=3;l++){
+            fprintf(frot, "l=%d\n", l);
+            fprintf(frot, "[\n");
+            for(io=0;io<2*l+1;io++){
+                for(jo=0;jo<2*l+1;jo++){
+                    fprintf(frot, "%12.7lf+%12.7lf*i,", creal(orb_rot[l][io*(2*l+1)+jo]), cimag(orb_rot[l][io*(2*l+1)+jo]) );
+                }
+                fprintf(frot, ";\n");
             }
-            fprintf(frot, ";\n");
+            fprintf(frot, "]\n");
         }
-        fprintf(frot, "]\n");
-    }
 
-    if( flag_soc == 1){
-        fprintf(frot, "\n\nspin_rot:\n");
-        for(io=0;io<2;io++){
-            for(jo=0;jo<2;jo++){
-                fprintf(frot, "%12.7lf+%12.7lf*i,", creal(s_rot[io*2+jo]), cimag(s_rot[io*2+jo]) );
+        if( flag_soc == 1){
+            fprintf(frot, "\n\nspin_rot:\n");
+            for(io=0;io<2;io++){
+                for(jo=0;jo<2;jo++){
+                    fprintf(frot, "%12.7lf+%12.7lf*i,", creal(s_rot[io*2+jo]), cimag(s_rot[io*2+jo]) );
+                }
+                fprintf(frot, "\n");
             }
-            fprintf(frot, "\n");
         }
-    }
-    fclose(frot);
+        fclose(frot);
 #endif
+    }
 
 
     //create a table to speed up finding rvec of (inv) symmetry operated orbital
@@ -248,19 +273,10 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
                                                             site_in2, r2, l2, mr2, ms2);
                                     if(ii_in < 0) continue;
                                     if(flag_local_axis > 0){
-                                        //matrix3x3_dot(rot_combined, rotation, );
                                         iorb_in = ii_in % norb;
-                                        combine_rot_with_local_axis(rot_combined, rotation, orb_info, iorb_in, iorb_out);
-                                        get_axis_angle_of_rotation(rot_axis, &rot_angle, &inv_flag, rot_combined, lattice);
-                                        s_rot = (dcomplex *)malloc(sizeof(dcomplex)*2*2);
-                                        //get s_rot with input (axis,angle,inv)
-                                        rotate_spinor(s_rot, rot_axis, rot_angle, inv_flag);
-
+                                        s_rot = o2o_s_rot[iorb_in*norb + iorb_out];
                                         for (l=0;l<=3;l++){
-                                            //get orb_rot with input (l,axis,angle,inv)
-                                            N = 2*l + 1;
-                                            orb_rot[l] = (dcomplex *)malloc(sizeof(dcomplex)*N*N);
-                                            rotate_cubic( orb_rot[l], l, rot_axis, rot_angle, inv_flag); 
+                                            orb_rot[l] = o2o_orb_rot[iorb_in*norb + iorb_out][l];
                                         }
                                     }
                                     // roted_H(l1,l2) = D(l1) · S · H(l1,l2) · S.conj.transe · D(l2).conj.transe
@@ -281,6 +297,12 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
                                                     site_in1, r1, l1, mr1, ms1,
                                                     site_in2, r2, l2, mr2, ms2);
                             if(ii_in < 0) continue;
+                            if(flag_local_axis > 0){
+                                iorb_in = ii_in % norb;
+                                for (l=0;l<=3;l++){
+                                    orb_rot[l] = o2o_orb_rot[iorb_in*norb + iorb_out][l];
+                                }
+                            }
                             // roted_H(l1,l2) = D(l1) · H(l1,l2) · D(l2).conj.transe
                             hout->ham[ii_out] += orb_rot[l1][(2*l1+1)*(mr_i-1)+mr1-1] *
                                                  (hin->ham[ii_in] / hin->weight[irpt_in]) * 
@@ -303,6 +325,17 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     free(s_rot);
     for (l=0;l<=3;l++){
         free(orb_rot[l]);
+    }
+    if(flag_local_axis > 0){
+        for(ii=0;ii<norb*norb;ii++){
+            free(o2o_s_rot[ii]);
+            for (l=0;l<=3;l++){
+                free(o2o_orb_rot[ii][l]);
+            }
+            free(o2o_orb_rot[ii]);
+        }
+        free(o2o_s_rot);
+        free(o2o_orb_rot);
     }
 }
 

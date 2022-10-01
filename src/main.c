@@ -275,6 +275,7 @@ int main(int argc, char ** argv){
 
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Bcast(&flag_soc, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&flag_local_axis, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&flag_restart, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&flag_chaeig, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&flag_global_trsymm, 1, MPI_INT, 0, MPI_COMM_WORLD);
