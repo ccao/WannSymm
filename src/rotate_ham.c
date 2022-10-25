@@ -67,6 +67,8 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     int N;
     dcomplex * orb_rot[MAX_L+1];
     dcomplex * s_rot;
+    dcomplex ** orb_rot1, ** orb_rot2;
+    dcomplex * s_rot1, * s_rot2;
     dcomplex *** o2o_orb_rot;    // orb-to-orb orbital-rotation matrix with local-axis considered
     dcomplex ** o2o_s_rot;               // orb-to-orb spin-rotation matrix with local-axis considered
     int inv_flag;
@@ -75,7 +77,7 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
 
     int ii_out, ii_in;
     int irpt_out, iorb_out, jorb_out;
-    int iorb_in;
+    int iorb_in1, iorb_in2;
     vector site_in1_old, site_in2_old;
     wanndata htmp;
 
@@ -273,18 +275,22 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
                                                             site_in2, r2, l2, mr2, ms2);
                                     if(ii_in < 0) continue;
                                     if(flag_local_axis > 0){
-                                        iorb_in = ii_in % norb;
-                                        s_rot = o2o_s_rot[iorb_in*norb + iorb_out];
-                                        for (l=0;l<=3;l++){
-                                            orb_rot[l] = o2o_orb_rot[iorb_in*norb + iorb_out][l];
-                                        }
+                                        iorb_in1 = (ii_in / norb) % norb;
+                                        iorb_in2 = ii_in % norb;
+                                        s_rot1 = o2o_s_rot[iorb_in1*norb + iorb_out];
+                                        s_rot2 = o2o_s_rot[iorb_in2*norb + jorb_out];
+                                        orb_rot1 = o2o_orb_rot[iorb_in1*norb + iorb_out];
+                                        orb_rot2 = o2o_orb_rot[iorb_in2*norb + jorb_out];
+                                    } else {
+                                        s_rot1   = s_rot2   = s_rot;
+                                        orb_rot1 = orb_rot2 = orb_rot;
                                     }
                                     // roted_H(l1,l2) = D(l1) · S · H(l1,l2) · S.conj.transe · D(l2).conj.transe
-                                    hout->ham[ii_out] += orb_rot[l1][(2*l1+1)*(mr_i-1)+mr1-1] *
-                                                         s_rot[2*ms_i + ms1] * 
+                                    hout->ham[ii_out] += orb_rot1[l1][(2*l1+1)*(mr_i-1)+mr1-1] *
+                                                         s_rot1[2*ms_i + ms1] * 
                                                          (hin->ham[ii_in] / hin->weight[irpt_in] )*
-                                                         conj(s_rot[2*ms_j + ms2])       * 
-                                                         conj(orb_rot[l2][(2*l2+1)*(mr_j-1)+mr2-1]);
+                                                         conj(s_rot2[2*ms_j + ms2])       * 
+                                                         conj(orb_rot2[l2][(2*l2+1)*(mr_j-1)+mr2-1]);
                                 }
                             }
                         }
@@ -298,15 +304,17 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
                                                     site_in2, r2, l2, mr2, ms2);
                             if(ii_in < 0) continue;
                             if(flag_local_axis > 0){
-                                iorb_in = ii_in % norb;
-                                for (l=0;l<=3;l++){
-                                    orb_rot[l] = o2o_orb_rot[iorb_in*norb + iorb_out][l];
-                                }
+                                iorb_in1 = (ii_in / norb) % norb;
+                                iorb_in2 = ii_in % norb;
+                                orb_rot1 = o2o_orb_rot[iorb_in1*norb + iorb_out];
+                                orb_rot2 = o2o_orb_rot[iorb_in2*norb + jorb_out];
+                            } else {
+                                orb_rot1 = orb_rot2 = orb_rot;
                             }
                             // roted_H(l1,l2) = D(l1) · H(l1,l2) · D(l2).conj.transe
-                            hout->ham[ii_out] += orb_rot[l1][(2*l1+1)*(mr_i-1)+mr1-1] *
+                            hout->ham[ii_out] += orb_rot1[l1][(2*l1+1)*(mr_i-1)+mr1-1] *
                                                  (hin->ham[ii_in] / hin->weight[irpt_in]) * 
-                                                 conj(orb_rot[l2][(2*l2+1)*(mr_j-1)+mr2-1]);
+                                                 conj(orb_rot2[l2][(2*l2+1)*(mr_j-1)+mr2-1]);
                         }
                     }
                 }
