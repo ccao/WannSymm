@@ -801,9 +801,9 @@ void read_projection_info(projgroup pjgroup[MAXLEN],
     parsestr_find_remove(arg_lowercase, arg_lowercase, ' ');
     for(i=0;strcmp(tag_lowercase, "endprojections")!=0 && strcmp(tag_lowercase, "endprojection")!=0; i++){
         // firstly initialize optional tags with default values
-        strcpy(pjgroup[i].zaxis_str, "0,0,1");
-        strcpy(pjgroup[i].xaxis_str, "1,0,0");
-        strcpy(pjgroup[i].yaxis_str, "0,1,0");
+        strcpy(pjgroup[i].zaxis_str, "0,0,0");
+        strcpy(pjgroup[i].xaxis_str, "0,0,0");
+        strcpy(pjgroup[i].yaxis_str, "0,0,0");
         strcpy(pjgroup[i].radial_str, "1");
         strcpy(pjgroup[i].zona_str, "1.0");
 
@@ -953,15 +953,47 @@ void derive_projection_info(int *  p2num_wann,
     iproj=0;
     for(i=0;i<num_pjgroup;i++){
         // firstly, derive r, vz, vx, vy of this projection group
+        sscanf(pjgroup[i].radial_str, "%d", &r);
+        //sscanf(pjgroup[i].zona_str, "%d", &zona); // tag 'zona' ignored currently(2022-09)
         sscanf(pjgroup[i].zaxis_str, "%lf,%lf,%lf", &(vz.x), &(vz.y), &(vz.z));
         sscanf(pjgroup[i].xaxis_str, "%lf,%lf,%lf", &(vx.x), &(vx.y), &(vx.z));
         sscanf(pjgroup[i].yaxis_str, "%lf,%lf,%lf", &(vy.x), &(vy.y), &(vy.z));
         // normalization
-        vz = vector_normalization(vz);
-        vx = vector_normalization(vx);
-        vy = vector_normalization(vy);
-        sscanf(pjgroup[i].radial_str, "%d", &r);
-        //sscanf(pjgroup[i].zona_str, "%d", &zona); // tag 'zona' ignored currently(2022-09)
+        if(vector_norm(vz) >= 1E-4)
+            vz = vector_normalization(vz);
+        if(vector_norm(vx) >= 1E-4)
+            vx = vector_normalization(vx);
+        if(vector_norm(vy) >= 1E-4)
+            vy = vector_normalization(vy);
+
+        // assign default value if vx, vy or vz is(are) not explicitly defined in input file
+        if( fabs(vector_norm(vz) + vector_norm(vx) + vector_norm(vy) - 2) < 1E-3 ){
+            if(vector_norm(vz) < 1E-4 )
+                vz = cross_product(vx, vy);
+            if(vector_norm(vx) < 1E-4 )
+                vx = cross_product(vy, vz);
+            if(vector_norm(vy) < 1E-4 )
+                vy = cross_product(vz, vx);
+        }
+        else if( fabs(vector_norm(vz) + vector_norm(vx) + vector_norm(vy) - 1) < 1E-3 ){
+            if(vector_norm(vz) >= 1E-4){
+                vx.x = 1; vx.y = 0; vx.z = 0;
+                vy = cross_product(vz, vx);
+            }
+            else if(vector_norm(vx) >= 1E-4){
+                vz.x = 0; vz.y = 0; vz.z = 1;
+                vy = cross_product(vz, vx);
+            }
+            else if(vector_norm(vy) >= 1E-4){
+                vz.x = 0; vz.y = 0; vz.z = 1;
+                vx = cross_product(vy, vz);
+            }
+        }
+        else if( fabs(vector_norm(vz) + vector_norm(vx) + vector_norm(vy) ) < 1E-3 ){
+            vx.x = 1; vx.y = 0; vx.z = 0;
+            vy.x = 0; vy.y = 1; vy.z = 0;
+            vz.x = 0; vz.y = 0; vz.z = 1;
+        }
         // vx, vy, vz must form an unitary axis.
         eps=1E-2;
         if( fabs(dot_product(vz, vx)) > eps ){
@@ -975,7 +1007,7 @@ void derive_projection_info(int *  p2num_wann,
         }
         if( fabs(dot_product(vz, vy)) > eps || fabs(dot_product(vx, vy)) > eps ){
             //print_msg("===========================\n");
-            sprintf(msg, "WARNING: (local axis) Projection Group No. %d, y-axis is set automatically as: \"y-axis = z-axis \\cross x-axis\". Please check the results.\n", i);
+            sprintf(msg, "WARNING: (local axis) Projection Group No. %d, y-axis is set automatically as: \"y-axis = z-axis \\cross x-axis\". Please check the results.\n", i+1);
             print_msg(msg);
             //print_msg("Manually set y-axis correctly to remove this WARNING.\n");
             //print_msg("===========================\n");

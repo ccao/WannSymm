@@ -1,6 +1,7 @@
 #include "rotate_ham.h"
 
 //#define __DEBUG
+#define __DEBUG_local_axes
 //#define __DEBUG_transmit
 //#define __DEBUG_rot_orb
 //#define __DEBUG_partial_d
@@ -67,8 +68,8 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     int N;
     dcomplex * orb_rot[MAX_L+1];
     dcomplex * s_rot;
-    dcomplex ** orb_rot1, ** orb_rot2;
-    dcomplex * s_rot1, * s_rot2;
+    dcomplex ** orb_rot_left, ** orb_rot_right;
+    dcomplex * s_rot_left, * s_rot_right;
     dcomplex *** o2o_orb_rot;    // orb-to-orb orbital-rotation matrix with local-axis considered
     dcomplex ** o2o_s_rot;               // orb-to-orb spin-rotation matrix with local-axis considered
     int inv_flag;
@@ -77,7 +78,7 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
 
     int ii_out, ii_in;
     int irpt_out, iorb_out, jorb_out;
-    int iorb_in1, iorb_in2;
+    int iorb_in, jorb_in;
     vector site_in1_old, site_in2_old;
     wanndata htmp;
 
@@ -88,6 +89,9 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     inverse_symm(rotation, inv_rotation, translation, inv_translation);
 
     get_axis_angle_of_rotation(rot_axis, &rot_angle, &inv_flag, rotation, lattice);
+    s_rot = (dcomplex *)malloc(sizeof(dcomplex)*2*2);                       //get s_rot with input (axis,angle,inv)
+    rotate_spinor(s_rot, rot_axis, rot_angle, inv_flag);
+
 
     if(flag_local_axis > 0){
         o2o_s_rot = (dcomplex **)malloc(sizeof(dcomplex *)*norb*norb);
@@ -102,8 +106,20 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
         }
         for(iorb=0;iorb<norb;iorb++){
             for(jorb=0;jorb<norb;jorb++){
-                combine_rot_with_local_axis(rot_combined, rotation, orb_info, iorb, jorb); // rotation from iorb to jorb
+                combine_rot_with_local_axis(rot_combined, rotation, lattice, orb_info, iorb, jorb); // rotation from iorb to jorb
                 get_axis_angle_of_rotation(rot_axis, &rot_angle, &inv_flag, rot_combined, lattice);
+                #ifdef __DEBUG_local_axes
+                    char fndbg[MAXLEN];
+                    FILE * fdbg;
+                    sprintf(fndbg, "dbg_loc_Axes_%d", mpi_rank+1);
+                    if(iorb==0 && jorb==0 && index_of_sym <= mpi_rank){
+                        remove(fndbg);
+                    }
+                    fdbg=fopen(fndbg, "a");
+                    sprintf(msg, "iorb=%5d, jorb=%5d, axis=%9.5lf%9.5lf%9.5lf, ang=%9.5lf\n", iorb+1, jorb+1, rot_axis[0], rot_axis[1], rot_axis[2], rot_angle/PI*180);
+                    fprintf(fdbg, "%s", msg);
+                    fclose(fdbg);
+                #endif
                 rotate_spinor(o2o_s_rot[iorb*norb+jorb], rot_axis, rot_angle, inv_flag);
                 for (l=0;l<=MAX_L;l++){
                     rotate_cubic( o2o_orb_rot[iorb*norb+jorb][l], l, rot_axis, rot_angle, inv_flag); 
@@ -112,15 +128,12 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
         }
 
     } else {
-        s_rot = (dcomplex *)malloc(sizeof(dcomplex)*2*2);                       //get s_rot with input (axis,angle,inv)
-        rotate_spinor(s_rot, rot_axis, rot_angle, inv_flag);
-
         for (l=0;l<=MAX_L;l++){                                                     //get orb_rot with input (l,axis,angle,inv)
             N = 2*l + 1;
             orb_rot[l] = (dcomplex *)malloc(sizeof(dcomplex)*N*N);
             rotate_cubic( orb_rot[l], l, rot_axis, rot_angle, inv_flag); 
         }
-#ifdef __DEBUG_rot_orb
+        #ifdef __DEBUG_rot_orb
         // print orbital rotation matrix
         char fnrot[MAXLEN];
         FILE * frot;
@@ -149,7 +162,7 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
             }
         }
         fclose(frot);
-#endif
+        #endif
     }
 
 
@@ -233,7 +246,9 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     FILE * fout;
 
     sprintf(foutname,".progress-of-thread%d", mpi_rank+1);
-    remove(foutname);
+    if(index_of_sym <= mpi_rank){
+        remove(foutname);
+    }
     //fout=fopen(foutname, "w");
     for( irpt_out=0; irpt_out < nrvec; irpt_out++){
         fout=fopen(foutname, "a");
@@ -275,22 +290,23 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
                                                             site_in2, r2, l2, mr2, ms2);
                                     if(ii_in < 0) continue;
                                     if(flag_local_axis > 0){
-                                        iorb_in1 = (ii_in / norb) % norb;
-                                        iorb_in2 = ii_in % norb;
-                                        s_rot1 = o2o_s_rot[iorb_in1*norb + iorb_out];
-                                        s_rot2 = o2o_s_rot[iorb_in2*norb + jorb_out];
-                                        orb_rot1 = o2o_orb_rot[iorb_in1*norb + iorb_out];
-                                        orb_rot2 = o2o_orb_rot[iorb_in2*norb + jorb_out];
+                                        iorb_in = ii_in % norb;
+                                        jorb_in = (ii_in / norb) % norb;
+                                        //s_rot_left    = o2o_s_rot[iorb_in*norb + iorb_out];
+                                        //s_rot_right   = o2o_s_rot[jorb_in*norb + jorb_out];
+                                        s_rot_left   = s_rot_right   = s_rot;
+                                        orb_rot_left  = o2o_orb_rot[iorb_in*norb + iorb_out];
+                                        orb_rot_right = o2o_orb_rot[jorb_in*norb + jorb_out];
                                     } else {
-                                        s_rot1   = s_rot2   = s_rot;
-                                        orb_rot1 = orb_rot2 = orb_rot;
+                                        s_rot_left   = s_rot_right   = s_rot;
+                                        orb_rot_left = orb_rot_right = orb_rot;
                                     }
                                     // roted_H(l1,l2) = D(l1) · S · H(l1,l2) · S.conj.transe · D(l2).conj.transe
-                                    hout->ham[ii_out] += orb_rot1[l1][(2*l1+1)*(mr_i-1)+mr1-1] *
-                                                         s_rot1[2*ms_i + ms1] * 
+                                    hout->ham[ii_out] += orb_rot_left[l1][(2*l1+1)*(mr_i-1)+mr1-1] *
+                                                         s_rot_left[2*ms_i + ms1] * 
                                                          (hin->ham[ii_in] / hin->weight[irpt_in] )*
-                                                         conj(s_rot2[2*ms_j + ms2])       * 
-                                                         conj(orb_rot2[l2][(2*l2+1)*(mr_j-1)+mr2-1]);
+                                                         conj(s_rot_right[2*ms_j + ms2])       * 
+                                                         conj(orb_rot_right[l2][(2*l2+1)*(mr_j-1)+mr2-1]);
                                 }
                             }
                         }
@@ -304,17 +320,17 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
                                                     site_in2, r2, l2, mr2, ms2);
                             if(ii_in < 0) continue;
                             if(flag_local_axis > 0){
-                                iorb_in1 = (ii_in / norb) % norb;
-                                iorb_in2 = ii_in % norb;
-                                orb_rot1 = o2o_orb_rot[iorb_in1*norb + iorb_out];
-                                orb_rot2 = o2o_orb_rot[iorb_in2*norb + jorb_out];
+                                iorb_in = ii_in % norb;
+                                jorb_in = (ii_in / norb) % norb;
+                                orb_rot_left  = o2o_orb_rot[iorb_in*norb + iorb_out];
+                                orb_rot_right = o2o_orb_rot[jorb_in*norb + jorb_out];
                             } else {
-                                orb_rot1 = orb_rot2 = orb_rot;
+                                orb_rot_left = orb_rot_right = orb_rot;
                             }
                             // roted_H(l1,l2) = D(l1) · H(l1,l2) · D(l2).conj.transe
-                            hout->ham[ii_out] += orb_rot1[l1][(2*l1+1)*(mr_i-1)+mr1-1] *
+                            hout->ham[ii_out] += orb_rot_left[l1][(2*l1+1)*(mr_i-1)+mr1-1] *
                                                  (hin->ham[ii_in] / hin->weight[irpt_in]) * 
-                                                 conj(orb_rot2[l2][(2*l2+1)*(mr_j-1)+mr2-1]);
+                                                 conj(orb_rot_right[l2][(2*l2+1)*(mr_j-1)+mr2-1]);
                         }
                     }
                 }
@@ -331,6 +347,7 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     }
 
 
+    free(s_rot);
     if(flag_local_axis > 0){
         for(ii=0;ii<norb*norb;ii++){
             free(o2o_s_rot[ii]);
@@ -342,7 +359,6 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
         free(o2o_s_rot);
         free(o2o_orb_rot);
     } else {
-        free(s_rot);
         for (l=0;l<=3;l++){
             free(orb_rot[l]);
         }
@@ -401,6 +417,8 @@ void get_axis_angle_of_rotation(double axis[3], double * angle, int * inv, doubl
     double c_m_lattice[3][3];
     double inv_lattice[3][3];
 
+    char msg[MAXLEN*5];
+
     for(i=0;i<3;i++)
         for(j=0;j<3;j++)
             c_m_lattice[i][j]=lattice[j][i];                 //row major to cloumn major
@@ -430,8 +448,10 @@ void get_axis_angle_of_rotation(double axis[3], double * angle, int * inv, doubl
     tr=type_of_rotation(rot);
 
     if(tr > 6 || tr < 0){// no use
-            printf("! ERROR, symmetry type not compatible to find axis and angle\n");
-            //exit(0);
+            sprintf(msg, "! ERROR, symmetry type not compatible to find axis and angle\n");
+            sprintf(msg, "%sMaybe error in defining symmetries or error in defining local-axis.", msg);
+            print_error(msg);
+            exit(0);
     }
     
     if(tr == 1 || tr==2){
@@ -489,21 +509,22 @@ void get_axis_angle_of_rotation(double axis[3], double * angle, int * inv, doubl
 
         //if(sign(rot[1][0]) != sign(*angle))
         if( fabs(axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle) - rot[1][0]) > 0.1 ){
-            fprintf(stderr, "!ERROR: Can not find corresponding axis & angle \n");
-            fprintf(stderr, "rot_direct:        rot_Cartesian:\n");
+            sprintf(msg, "!ERROR: Can not find corresponding axis & angle \n");
+            sprintf(msg, "%srot_direct:                        rot_Cartesian:\n", msg);
             for(ii=0;ii<3;ii++){
                 for(jj=0;jj<3;jj++)
-                    fprintf(stderr, "%9.5lf ",rin[ii][jj]);
-                fprintf(stderr, "  ||   ");
+                    sprintf(msg, "%s%9.5lf ", msg, rin[ii][jj]);
+                sprintf(msg, "%s  ||   ", msg);
                 for(jj=0;jj<3;jj++)
-                    fprintf(stderr, "%9.5lf ",rot[ii][jj]);
-                fprintf(stderr,"\n");
+                    sprintf(msg, "%s%9.5lf ", msg, rot[ii][jj]);
+                sprintf(msg,"%s\n",msg);
             }
-            fprintf(stderr,"rot_Cartesian[1][0] =%15.9lf\naxis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle)=%15.9lf\n", 
-                            rot[1][0], axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle));
-            fprintf(stderr,"Generally, rot_Cartesian[1][0] should be equal to axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle)\n");
-            fprintf(stderr,"angle=%6.2lf, axis=%7.3lf%7.3lf%7.3lf\n",(*angle)/PI*180,axis[0],axis[1],axis[2]);
-            exit(0);
+            sprintf(msg,"%srot_Cartesian[1][0] =%15.9lf\naxis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle)=%15.9lf\n", 
+                    msg, rot[1][0], axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle));
+            sprintf(msg,"%sGenerally, rot_Cartesian[1][0] should be equal to axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle)\n", msg);
+            sprintf(msg,"%sangle=%6.2lf, axis=%7.3lf%7.3lf%7.3lf\n", msg,(*angle)/PI*180,axis[0],axis[1],axis[2]);
+            print_error(msg);
+            exit(1);
         }
 
     }
@@ -704,23 +725,46 @@ void trsymm_ham(wanndata * hout, wanndata * hin, wannorb * orb_info, int flag_so
     }
 }
 
-void combine_rot_with_local_axis(double rot_combined[3][3], double rotation[3][3], wannorb * orb_info, int io_in, int io_out){
-    // rot_combined =  inv(Axes_out) * rot * Axes_in
-    double axes_in[3][3];
-    double axes_out[3][3];
+void combine_rot_with_local_axis(double rot_combined[3][3], double rotation[3][3], double lattice[3][3], wannorb * orb_info, int io_in, int io_out){
+    // This sub-function combines the rotation matrix with the consideration of local-axes
+    //
+    // rot_combined =  Axes_out * rot_initial * inv(Axes_in)
+    //
+    // Note: Axes_in and Axes_out are based on Lattice vectors instead of Cartesian Coordinates;
+    //       rot_initial is rotation that related to Axes_in
+    double axes_cart_in[3][3];
+    double axes_direct_in[3][3];
+    double axes_cart_out[3][3];
+    double axes_direct_out[3][3];
+    double c_m_latt[3][3]; // cloumn major lattice
+    double inv_latt[3][3]; // inverse matrix of cloumn major lattice
     double mtmp[3][3];
     int ii;
 
+    matrix3x3_transpose(c_m_latt, lattice); //row major to cloumn major
+    matrix3x3_inverse(inv_latt, c_m_latt);
+
     for(ii=0;ii<3;ii++){
-        axes_in[ii][0] = orb_info[io_in].axis[ii].x;
-        axes_in[ii][1] = orb_info[io_in].axis[ii].y;
-        axes_in[ii][2] = orb_info[io_in].axis[ii].z;
-        axes_out[ii][0] = orb_info[io_out].axis[ii].x;
-        axes_out[ii][1] = orb_info[io_out].axis[ii].y;
-        axes_out[ii][2] = orb_info[io_out].axis[ii].z;
+        axes_cart_in[ii][0]  = orb_info[io_in].axis[ii].x;
+        axes_cart_in[ii][1]  = orb_info[io_in].axis[ii].y;
+        axes_cart_in[ii][2]  = orb_info[io_in].axis[ii].z;
+        axes_cart_out[ii][0] = orb_info[io_out].axis[ii].x;
+        axes_cart_out[ii][1] = orb_info[io_out].axis[ii].y;
+        axes_cart_out[ii][2] = orb_info[io_out].axis[ii].z;
     }
-    matrix3x3_dot(rot_combined, rotation, axes_in);
-    matrix3x3_inverse(mtmp, axes_out);
+    matrix3x3_transpose(axes_cart_in, axes_cart_in); //row major to cloumn major
+    matrix3x3_transpose(axes_cart_out, axes_cart_out); //row major to cloumn major
+
+    matrix3x3_dot(mtmp, axes_cart_in, c_m_latt);
+    matrix3x3_dot(axes_direct_in, inv_latt, mtmp);
+    matrix3x3_dot(mtmp, axes_cart_out, c_m_latt);
+    matrix3x3_dot(axes_direct_out, inv_latt, mtmp);
+
+    //matrix3x3_inverse(mtmp, axes_direct_in);
+    //matrix3x3_dot(rot_combined, rotation, mtmp);
+    //matrix3x3_dot(rot_combined, axes_direct_out, rot_combined);
+    matrix3x3_dot(rot_combined, rotation, axes_direct_in);
+    matrix3x3_inverse(mtmp, axes_direct_out);
     matrix3x3_dot(rot_combined, mtmp, rot_combined);
 }
 
