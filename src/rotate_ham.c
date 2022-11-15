@@ -1,7 +1,7 @@
 #include "rotate_ham.h"
 
 //#define __DEBUG
-#define __DEBUG_local_axes
+//#define __DEBUG_local_axes
 //#define __DEBUG_transmit
 //#define __DEBUG_rot_orb
 //#define __DEBUG_partial_d
@@ -65,6 +65,10 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     double rot_axis[3];
     double rot_angle;
 
+    double la_rot_axis[3]; // vaiable used for deriving rotation matrix for local-axis
+    double la_rot_angle;
+    int la_inv_flag;
+
     int N;
     dcomplex * orb_rot[MAX_L+1];
     dcomplex * s_rot;
@@ -82,6 +86,8 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     vector site_in1_old, site_in2_old;
     wanndata htmp;
 
+    int flag_symm_of_quasicrystal=0;
+    double eps;
     char msg[MAXLEN];
 
     norb = hin->norb;
@@ -92,6 +98,16 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     s_rot = (dcomplex *)malloc(sizeof(dcomplex)*2*2);                       //get s_rot with input (axis,angle,inv)
     rotate_spinor(s_rot, rot_axis, rot_angle, inv_flag);
 
+    eps=1E-3;
+    if( fabs(2*PI/rot_angle - 0) > eps && 
+        fabs(2*PI/rot_angle - 1) > eps && 
+        fabs(2*PI/rot_angle - 2) > eps && 
+        fabs(2*PI/rot_angle - 3) > eps && 
+        fabs(2*PI/rot_angle - 4) > eps && 
+        fabs(2*PI/rot_angle - 6) > eps)
+    {
+        flag_symm_of_quasicrystal = 1;
+    }
 
     if(flag_local_axis > 0){
         o2o_s_rot = (dcomplex **)malloc(sizeof(dcomplex *)*norb*norb);
@@ -107,7 +123,7 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
         for(iorb=0;iorb<norb;iorb++){
             for(jorb=0;jorb<norb;jorb++){
                 combine_rot_with_local_axis(rot_combined, rotation, lattice, orb_info, iorb, jorb); // rotation from iorb to jorb
-                get_axis_angle_of_rotation(rot_axis, &rot_angle, &inv_flag, rot_combined, lattice);
+                get_axis_angle_of_rotation(la_rot_axis, &la_rot_angle, &la_inv_flag, rot_combined, lattice);
                 #ifdef __DEBUG_local_axes
                     char fndbg[MAXLEN];
                     FILE * fdbg;
@@ -116,13 +132,13 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
                         remove(fndbg);
                     }
                     fdbg=fopen(fndbg, "a");
-                    sprintf(msg, "iorb=%5d, jorb=%5d, axis=%9.5lf%9.5lf%9.5lf, ang=%9.5lf\n", iorb+1, jorb+1, rot_axis[0], rot_axis[1], rot_axis[2], rot_angle/PI*180);
+                    sprintf(msg, "iorb=%5d, jorb=%5d, axis=%9.5lf%9.5lf%9.5lf, ang=%9.5lf\n", iorb+1, jorb+1, la_rot_axis[0], la_rot_axis[1], la_rot_axis[2], la_rot_angle/PI*180);
                     fprintf(fdbg, "%s", msg);
                     fclose(fdbg);
                 #endif
-                rotate_spinor(o2o_s_rot[iorb*norb+jorb], rot_axis, rot_angle, inv_flag);
+                rotate_spinor(o2o_s_rot[iorb*norb+jorb], la_rot_axis, la_rot_angle, la_inv_flag);
                 for (l=0;l<=MAX_L;l++){
-                    rotate_cubic( o2o_orb_rot[iorb*norb+jorb][l], l, rot_axis, rot_angle, inv_flag); 
+                    rotate_cubic( o2o_orb_rot[iorb*norb+jorb][l], l, la_rot_axis, la_rot_angle, la_inv_flag); 
                 }
             }
         }
@@ -198,6 +214,8 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     // Rotate all site = {Rvec + tau} to site_rot, if site_rot located in a Rvec not listed in rvec_list, add it.
     vec_llist * rvecs;
     int nrvec=0;
+    int nerr=1;
+    int flag_warnning_printed=0;
 
     vec_llist_init(&rvecs);
     for( irpt=0; irpt < hin->nrpt; irpt++){
@@ -208,6 +226,25 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     for( irpt=0; irpt < hin->nrpt; irpt++){
         rvec_in = hin->rvec[irpt];
         rvec_in_roted = vector_rotate(rvec_in, rotation);
+        if(!(is_integer(rvec_in_roted.x, 1E-3) && is_integer(rvec_in_roted.y, 1E-3) && is_integer(rvec_in_roted.z, 1E-3)) ){
+            // skip rvec that is not compatible with this rotation operation
+            vec_llist_del(&rvecs, rvec_in, &nerr);
+            if(nerr == 1){
+                nrvec--;
+            }
+            if(flag_warnning_printed==0){
+                if(flag_symm_of_quasicrystal == 1){
+                    sprintf(msg,"WARNING! Symm No. %d, symmetry of quasi-crystal found!", index_of_sym+1);
+                }
+                else {
+                    sprintf(msg,"WARNING! Symm No. %d, symmetry is not compatible with lattice!", index_of_sym+1);
+                }
+                sprintf(msg, "%s Rvecs that are not compatible with this rotation are skipped!\n", msg);
+                print_msg(msg);
+                flag_warnning_printed=1;
+            }
+            continue;
+        }
         for(jorb=0; jorb<norb; jorb++){
             if( jorb > 0 && equal((orb_info+jorb)->site, (orb_info+jorb-1)->site)) continue;
             rvec_out2 = vector_add(rvec_sup_symmed[jorb], rvec_in_roted);
@@ -230,7 +267,6 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
     hout->nrpt = nrvec;
     init_wanndata(hout);
     
-    int nerr=1;
     for( irpt=0; irpt < nrvec; irpt++){
         hout->rvec[irpt] = vec_llist_pop(&rvecs, &nerr);
         if( nerr == -1){
@@ -260,6 +296,13 @@ void rotate_ham(wanndata * hout, wanndata * hin, double lattice[3][3], double ro
             site_out2 = (orb_info + jorb_out)->site;
             site_in2  = site_invsed[jorb_out];
             rvec_in2  = vector_add(rvec_sup_invsed[jorb_out], rvec_out_invsed);
+            if(flag_symm_of_quasicrystal == 1 && !(is_integer(rvec_in2.x, 1E-3) && is_integer(rvec_in2.y, 1E-3) && is_integer(rvec_in2.z, 1E-3) ))
+            {
+                // For quasi-crystal cases, we need to make sure rvec_in2 consists of three integers.
+                loc_out2 = vector_add(site_out2, rvec_out);
+                loc_in2 = vector_rotate(loc_out2, inv_rotation);
+                getrvec_and_site(&rvec_in2, &site_in2, loc_in2, orb_info, norb, lattice);
+            }
             r2 = (orb_info+jorb_out)->r;
             l2 = (orb_info+jorb_out)->l;
             mr_j = (orb_info+jorb_out)->mr;
@@ -418,6 +461,8 @@ void get_axis_angle_of_rotation(double axis[3], double * angle, int * inv, doubl
     double inv_lattice[3][3];
 
     char msg[MAXLEN*5];
+    double eps = 3*eps4;
+    int flag_error_angle=0;
 
     for(i=0;i<3;i++)
         for(j=0;j<3;j++)
@@ -499,6 +544,16 @@ void get_axis_angle_of_rotation(double axis[3], double * angle, int * inv, doubl
         for(i=0;i<3;i++) 
             trace_rot += rot[i][i];
         *angle = acos((trace_rot-1.0)/2.0);
+        if( *angle != *angle){
+            if(trace_rot > 3){
+                *angle = acos((trace_rot - eps -1.0)/2.0);
+            } else {
+                *angle = acos((trace_rot + eps -1.0)/2.0);
+            }
+            if( *angle != *angle){
+                flag_error_angle = 1;
+            }
+        }
 
         if( fabs(axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle) - rot[1][0]) > 1e-5 )
             *angle *= -1;
@@ -508,21 +563,24 @@ void get_axis_angle_of_rotation(double axis[3], double * angle, int * inv, doubl
             *angle *= -1;
 
         //if(sign(rot[1][0]) != sign(*angle))
-        if( fabs(axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle) - rot[1][0]) > 0.1 ){
+        if( fabs(axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle) - rot[1][0]) > 0.1 || flag_error_angle == 1){
             sprintf(msg, "!ERROR: Can not find corresponding axis & angle \n");
-            sprintf(msg, "%srot_direct:                        rot_Cartesian:\n", msg);
+            sprintf(msg, "%srot_direct:                              || rot_Cartesian:\n", msg);
             for(ii=0;ii<3;ii++){
                 for(jj=0;jj<3;jj++)
-                    sprintf(msg, "%s%9.5lf ", msg, rin[ii][jj]);
+                    sprintf(msg, "%s%12.8lf ", msg, rin[ii][jj]);
                 sprintf(msg, "%s  ||   ", msg);
                 for(jj=0;jj<3;jj++)
-                    sprintf(msg, "%s%9.5lf ", msg, rot[ii][jj]);
+                    sprintf(msg, "%s%12.8lf ", msg, rot[ii][jj]);
                 sprintf(msg,"%s\n",msg);
             }
             sprintf(msg,"%srot_Cartesian[1][0] =%15.9lf\naxis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle)=%15.9lf\n", 
                     msg, rot[1][0], axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle));
             sprintf(msg,"%sGenerally, rot_Cartesian[1][0] should be equal to axis[1]*axis[0]*(1-cos(*angle)) + axis[2]*sin(*angle)\n", msg);
             sprintf(msg,"%sangle=%6.2lf, axis=%7.3lf%7.3lf%7.3lf\n", msg,(*angle)/PI*180,axis[0],axis[1],axis[2]);
+            if(flag_error_angle == 1){
+                sprintf(msg, "%sPlease Note: the rotation angle found is not a number. may be wrong defined rotation matrix or local axis.\n",msg);
+            }
             print_error(msg);
             exit(1);
         }
@@ -768,3 +826,11 @@ void combine_rot_with_local_axis(double rot_combined[3][3], double rotation[3][3
     matrix3x3_dot(rot_combined, mtmp, rot_combined);
 }
 
+int is_integer(double val, double eps){
+    double intpart;
+    if( fabs(modf(val, &intpart)) <= eps){
+        return 1;
+    } else {
+        return 0;
+    }
+}
