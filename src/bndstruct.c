@@ -2,7 +2,7 @@
 
 void bnd_eigcha(double * eig_hk, int * ndegen, dcomplex *** p2sym_chas, dcomplex *** p2sym_eigs, smallgroup * sgrp,
                 double lattice[3][3], double rotations[][3][3], double translations[][3], int TR[], double rots_kd[][3][3], int nsymm,
-                wannorb * orb_info, int flag_soc, 
+                wannorb * orb_info, int flag_soc, int flag_local_axis,
                 wanndata * hr, vector kpt, double degenerate_tolerance) {
     // determine the small group (sgrp) that keep kpt unchanged.
     // calculate the band structure (eig_hk) from hr.
@@ -84,7 +84,7 @@ void bnd_eigcha(double * eig_hk, int * ndegen, dcomplex *** p2sym_chas, dcomplex
     for(sgrpi=0; sgrpi < sgrp->order; sgrpi++){
         isymm = sgrp->element[sgrpi];
         if(isymm < 0)  isymm = -isymm - 1;
-        get_sym_op_reciprocalspace(sym_op, lattice, orb_info, norb, sgrp->element[sgrpi], rotations[isymm], translations[isymm], TR[isymm], rots_kd[isymm], kpt, flag_soc);
+        get_sym_op_reciprocalspace(sym_op, lattice, orb_info, norb, sgrp->element[sgrpi], rotations[isymm], translations[isymm], TR[isymm], rots_kd[isymm], kpt, flag_soc, flag_local_axis);
         
         //sym_op will be block diagonalized by vr_hk 
         //sym_op_block_diag = vr_hk.conj.transe * sym_op * vr_hk

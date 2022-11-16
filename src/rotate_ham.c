@@ -834,3 +834,4 @@ int is_integer(double val, double eps){
         return 0;
     }
 }
+

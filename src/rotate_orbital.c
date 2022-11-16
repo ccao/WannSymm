@@ -1,6 +1,7 @@
 #include "rotate_orbital.h"
 
-//#define __DEBUG_rot_orb
+//#define __DEBUG_rot_orb_detail
+//#define __DEBUG_rot_and_Ylm2C
 
 void generate_Lmatrix(dcomplex * Lmat, int l) {
 /*
@@ -259,7 +260,7 @@ void rotate_cubic(dcomplex * rot, int l, double axis[3], double alpha, int inv) 
   Ylm2C=(dcomplex *)malloc(sizeof(dcomplex)*N*N);
 
   generate_C2Ylm(C2Ylm, Ylm2C, l);
-#ifdef __DEBUG
+#ifdef __DEBUG_rot_orb_detail
     printf("Ylm2C:\n");
     for(int i=0; i<N; i++) {
       for(int j=0; j<N; j++) {
@@ -271,7 +272,7 @@ void rotate_cubic(dcomplex * rot, int l, double axis[3], double alpha, int inv) 
 
   rotate_Ylm(rot_Ylm, l, axis, alpha, inv);
 
-#ifdef __DEBUG
+#ifdef __DEBUG_rot_orb_detail
     printf("rot_Ylm:\n");
     for(int i=0; i<N; i++) {
       for(int j=0; j<N; j++) {
@@ -285,10 +286,33 @@ void rotate_cubic(dcomplex * rot, int l, double axis[3], double alpha, int inv) 
   cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasTrans, N, N, N, &one, rot_Ylm, N, Ylm2C, N, &zero, tmp, N);
   cblas_zgemm(CblasRowMajor, CblasTrans, CblasNoTrans, N, N, N, &one, C2Ylm, N, tmp, N, &zero, rot, N);
 
-  //test:
-  //cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, N, N, N, &one, C2Ylm , N, rot_Ylm, N, &zero, tmp, N);
-  //cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, N, N, N, &one, tmp, N, Ylm2C, N, &zero, rot, N);
-
+  #ifdef __DEBUG_rot_and_Ylm2C
+    if(l==1 && rot[3*1+1] != 1){//tmp, debug
+        printf("l=1\n");
+        printf("rot:\n");
+        for(int i=0; i<N; i++) {
+          for(int j=0; j<N; j++) {
+            printf("(%14.9f,%14.9f) ", creal(rot[i*N+j]), cimag(rot[i*N+j]));
+          }
+          printf("\n");
+        }
+        printf("Ylm2C:\n");
+        for(int i=0; i<N; i++) {
+          for(int j=0; j<N; j++) {
+            printf("(%14.9f,%14.9f) ", creal(Ylm2C[i*N+j]), cimag(Ylm2C[i*N+j]));
+          }
+          printf("\n");
+        }
+        printf("rot_Ylm:\n");
+        for(int i=0; i<N; i++) {
+          for(int j=0; j<N; j++) {
+            printf("(%14.9f,%14.9f) ", creal(rot_Ylm[i*N+j]), cimag(rot_Ylm[i*N+j]));
+          }
+          printf("\n");
+        }
+        exit(1);
+    }
+  #endif
 
   free(Ylm2C);
   free(tmp);

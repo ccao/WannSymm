@@ -704,7 +704,7 @@ int main(int argc, char ** argv){
 
             bnd_eigcha(eig_hk, ndegen, &sym_chas, &sym_eigs, &sgrp,
                        lattice, rotations, translations, TR, rots_kd, nsymm,
-                       orb_info, flag_soc, 
+                       orb_info, flag_soc, flag_local_axis,
                        &ham_final, kpt, degenerate_tolerance);
 
         
