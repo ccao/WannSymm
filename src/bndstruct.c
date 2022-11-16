@@ -151,6 +151,7 @@ void bnd_eig_hk(double * eig_hk, dcomplex * vr_hk, wanndata * hr, vector kpt){
     // from the real-space Hamiltonian (hr).
     // 2. diagonalize hamk and output the eigenvalues (eig_hk) and eigenvectors (vr_hk)
 
+    int ii,jj;
     int irpt, i;
     dcomplex coeff, scal;
     dcomplex * ham_k;
@@ -170,11 +171,14 @@ void bnd_eig_hk(double * eig_hk, dcomplex * vr_hk, wanndata * hr, vector kpt){
     }
     
     // diagonalize hamk
-    LAPACKE_zheev( LAPACK_ROW_MAJOR,'V',  'U', 
+    LAPACKE_zheev( LAPACK_COL_MAJOR,'V',  'U', 
                    norb, ham_k, norb, eig_hk);
     // zheev changes ham_k to its right eigenvectors.
     if(vr_hk != NULL){
-        memcpy(vr_hk, ham_k, sizeof(dcomplex)*norb*norb);
+        //memcpy(vr_hk, ham_k, sizeof(dcomplex)*norb*norb);
+        for(ii=0;ii<norb;ii++)
+            for(jj=0;jj<norb;jj++)
+                vr_hk[ii*norb + jj] = ham_k[jj*norb+ii];
     }
     free(ham_k);
 }

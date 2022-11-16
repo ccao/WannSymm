@@ -132,7 +132,7 @@ void get_sym_op_reciprocalspace(dcomplex * sym_op, double lattice[3][3], wannorb
             sym_op[io*norb+jo] =cexp(-2*PI*cmplx_i * (dot_product(kpt_roted, vector_sub(rvec_supp,translation_v))))*
                                 (orb_rot[l][(2*l+1)*(mr1-1) + mr2-1]) * 
                                 (s_rot[2*ms1 + ms2]);
-            sym_op[io*norb+jo] = conj(sym_op[io*norb+jo]);
+            //sym_op[io*norb+jo] = conj(sym_op[io*norb+jo]);
         }
     }
 
