@@ -121,7 +121,7 @@ void get_sym_op_reciprocalspace(dcomplex * sym_op, double lattice[3][3], wannorb
             mr2 = (orb_info+jo)->mr;
             ms1 = (orb_info+io)->ms;
             ms2 = (orb_info+jo)->ms;
-            if(flag_local_axis == 1){
+            if(flag_local_axis > 0){
                 combine_rot_with_local_axis(rot_combined, rotation, lattice, orb_info, jo, io); // rotation from jo to io
                 get_axis_angle_of_rotation(la_rot_axis, &la_rot_angle, &la_inv_flag, rot_combined, lattice);
                 rotate_cubic( orb_rot[l], l, la_rot_axis, la_rot_angle, la_inv_flag);
