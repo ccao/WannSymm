@@ -1,6 +1,6 @@
 #include "rotate_basis.h"
 
-void get_sym_op_reciprocalspace(dcomplex * sym_op, double lattice[3][3], wannorb * orb_info, int norb, int isym_in_doublegp, double rotation[3][3],double translation[3], int TR, double rot_kd[3][3], vector kpt, int flag_soc) {
+void get_sym_op_reciprocalspace(dcomplex * sym_op, double lattice[3][3], wannorb * orb_info, int norb, int isym_in_doublegp, double rotation[3][3],double translation[3], int TR, double rot_kd[3][3], vector kpt, int flag_soc, int flag_local_axis) {
    //
    //  trans from ccao's fortran code
    //
@@ -52,6 +52,11 @@ void get_sym_op_reciprocalspace(dcomplex * sym_op, double lattice[3][3], wannorb
     int mr1,mr2;
     int ms1,ms2;
 
+    // vaiable used for deriving rotation matrix for local-axis
+    double rot_combined[3][3];
+    double la_rot_axis[3]; 
+    double la_rot_angle;
+    int la_inv_flag;
 
     init_vector(&translation_v, translation[0], translation[1], translation[2]);
     //init_vector(&translation_kd_v, translation_kd[0], translation_kd[1], translation_kd[2]);
@@ -116,13 +121,18 @@ void get_sym_op_reciprocalspace(dcomplex * sym_op, double lattice[3][3], wannorb
             mr2 = (orb_info+jo)->mr;
             ms1 = (orb_info+io)->ms;
             ms2 = (orb_info+jo)->ms;
+            if(flag_local_axis > 0){
+                combine_rot_with_local_axis(rot_combined, rotation, lattice, orb_info, jo, io); // rotation from jo to io
+                get_axis_angle_of_rotation(la_rot_axis, &la_rot_angle, &la_inv_flag, rot_combined, lattice);
+                rotate_cubic( orb_rot[l], l, la_rot_axis, la_rot_angle, la_inv_flag);
+            }
             //sym_op[io*norb+jo] =cexp(2*PI*cmplx_i * (dot_product(kpt_roted, vector_sub(rvec_supp,translation_v))))*
             //sym_op[io*norb+jo] =cexp(-2*PI*cmplx_i * (dot_product(kpt_roted, rvec_supp)))*
             //sym_op[io*norb+jo] =cexp(-2*PI*cmplx_i * (dot_product(kpt_roted, vector_add(rvec_supp,translation_v))))*
             sym_op[io*norb+jo] =cexp(-2*PI*cmplx_i * (dot_product(kpt_roted, vector_sub(rvec_supp,translation_v))))*
                                 (orb_rot[l][(2*l+1)*(mr1-1) + mr2-1]) * 
                                 (s_rot[2*ms1 + ms2]);
-            sym_op[io*norb+jo] = conj(sym_op[io*norb+jo]);
+            //sym_op[io*norb+jo] = conj(sym_op[io*norb+jo]);
         }
     }
 

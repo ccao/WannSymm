@@ -24,4 +24,5 @@ int type_of_rotation(double rot[3][3]);
 void inverse_symm(double rin[3][3], double rout[3][3], double tin[3], double tout[3]);
 double sign(double in);
 void trsymm_ham(wanndata * hout, wanndata * hin, wannorb * orb_info, int flag_soc);
-void combine_rot_with_local_axis(double rot_combined[3][3], double rotation[3][3], wannorb * orb_info, int io_in, int io_out);
+void combine_rot_with_local_axis(double rot_combined[3][3], double rotation[3][3], double lattice[3][3], wannorb * orb_info, int io_in, int io_out);
+int is_integer(double val, double eps);

@@ -28,7 +28,7 @@ typedef struct __smallgroup{
 // calculate eigenvalues and characters
 void bnd_eigcha(double * eig_hk, int * ndegen, dcomplex *** p2sym_chas, dcomplex *** p2sym_eigs, smallgroup * sgrp,
                 double lattice[3][3], double rotations[][3][3], double translations[][3], int TR[], double rots_kd[][3][3], int nsymm,
-                wannorb * orb_info, int flag_soc, 
+                wannorb * orb_info, int flag_soc, int flag_local_axis,
                 wanndata * hr, vector kpt, double degenerate_tolerance);
 
 // calculate eigenvalues (eig_hk, dim: norb x 1) and eigenvectors (vr_hk, dim: norb x norb) of k-space Hamiltonian

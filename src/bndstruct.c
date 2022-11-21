@@ -2,7 +2,7 @@
 
 void bnd_eigcha(double * eig_hk, int * ndegen, dcomplex *** p2sym_chas, dcomplex *** p2sym_eigs, smallgroup * sgrp,
                 double lattice[3][3], double rotations[][3][3], double translations[][3], int TR[], double rots_kd[][3][3], int nsymm,
-                wannorb * orb_info, int flag_soc, 
+                wannorb * orb_info, int flag_soc, int flag_local_axis,
                 wanndata * hr, vector kpt, double degenerate_tolerance) {
     // determine the small group (sgrp) that keep kpt unchanged.
     // calculate the band structure (eig_hk) from hr.
@@ -84,7 +84,7 @@ void bnd_eigcha(double * eig_hk, int * ndegen, dcomplex *** p2sym_chas, dcomplex
     for(sgrpi=0; sgrpi < sgrp->order; sgrpi++){
         isymm = sgrp->element[sgrpi];
         if(isymm < 0)  isymm = -isymm - 1;
-        get_sym_op_reciprocalspace(sym_op, lattice, orb_info, norb, sgrp->element[sgrpi], rotations[isymm], translations[isymm], TR[isymm], rots_kd[isymm], kpt, flag_soc);
+        get_sym_op_reciprocalspace(sym_op, lattice, orb_info, norb, sgrp->element[sgrpi], rotations[isymm], translations[isymm], TR[isymm], rots_kd[isymm], kpt, flag_soc, flag_local_axis);
         
         //sym_op will be block diagonalized by vr_hk 
         //sym_op_block_diag = vr_hk.conj.transe * sym_op * vr_hk
@@ -151,6 +151,7 @@ void bnd_eig_hk(double * eig_hk, dcomplex * vr_hk, wanndata * hr, vector kpt){
     // from the real-space Hamiltonian (hr).
     // 2. diagonalize hamk and output the eigenvalues (eig_hk) and eigenvectors (vr_hk)
 
+    int ii,jj;
     int irpt, i;
     dcomplex coeff, scal;
     dcomplex * ham_k;
@@ -170,11 +171,14 @@ void bnd_eig_hk(double * eig_hk, dcomplex * vr_hk, wanndata * hr, vector kpt){
     }
     
     // diagonalize hamk
-    LAPACKE_zheev( LAPACK_ROW_MAJOR,'V',  'U', 
+    LAPACKE_zheev( LAPACK_COL_MAJOR,'V',  'U', 
                    norb, ham_k, norb, eig_hk);
     // zheev changes ham_k to its right eigenvectors.
     if(vr_hk != NULL){
-        memcpy(vr_hk, ham_k, sizeof(dcomplex)*norb*norb);
+        //memcpy(vr_hk, ham_k, sizeof(dcomplex)*norb*norb);
+        for(ii=0;ii<norb;ii++)
+            for(jj=0;jj<norb;jj++)
+                vr_hk[ii*norb + jj] = ham_k[jj*norb+ii];
     }
     free(ham_k);
 }
