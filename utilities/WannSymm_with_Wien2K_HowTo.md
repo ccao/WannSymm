@@ -4,31 +4,31 @@ There are several issues we need to pay special attention to when use WannSymm w
 
 1. The Wannier orbital definition order is different in Wien2K (more precisely, in Wien2Wannier) than in Wannier90. As WannSymm default to Wannier90 order, this must be changed. This part is done by modifying the write_inwf_lapw code in Wien2K distribution. Use your favorite editor to open the write_inwf_lapw file and find the line begin with _ang_func_aliases. In Wien2K 19.1, it is located at line 261, looks like:
 
-```python
-_angfunc_aliases = {
-    'p' : ['px', 'py', 'pz'],
-    'p-x' : ['px'],
-    'p-y' : ['py'],
-    'p-z' : ['pz'],
+    ```python
+    _angfunc_aliases = {
+        'p' : ['px', 'py', 'pz'],
+        'p-x' : ['px'],
+        'p-y' : ['py'],
+        'p-z' : ['pz'],
 
-'d' : ['dxy', 'dxz', 'dyz', 'dx^2-y^2', 'dz^2'],
-……
-……
-```
+    'd' : ['dxy', 'dxz', 'dyz', 'dx^2-y^2', 'dz^2'],
+    ……
+    ……
+    ```
 
-&nbsp; &nbsp; &nbsp; &nbsp;Change the order of p, d, f aliases into:
+    Change the order of p, d, f aliases into:
 
-```python
-……
-    'p' : ['pz', 'px', 'py'],
-……
-    'd' : ['dz^2', 'dxz', 'dyz', 'dx^2-y^2', 'dxy'],
-……
-    'f' : ['fz^3', 'fxz^2', 'fyz^2', 'fz(x^2-y^2)', 'fxyz', 'fx(x^2-3y^2)', 'fy(3x^2-y^2)'],
-……
-```
+    ```python
+    ……
+        'p' : ['pz', 'px', 'py'],
+    ……
+        'd' : ['dz^2', 'dxz', 'dyz', 'dx^2-y^2', 'dxy'],
+    ……
+        'f' : ['fz^3', 'fxz^2', 'fyz^2', 'fz(x^2-y^2)', 'fxyz', 'fx(x^2-3y^2)', 'fy(3x^2-y^2)'],
+    ……
+    ```
 
-&nbsp; &nbsp; &nbsp; &nbsp;So that the output order of Wien2Wannier would be the same as Wannier90 default.
+    So that the output order of Wien2Wannier would be the same as Wannier90 default.
 
 2. The Wannier orbitals generated with Wien2Wannier has “local axis” by default. In addition, if we specify “local axis” in write_inwf, it rotates the spin as well (in the SOC case), which is not desired in Wannier90. Therefore, it is highly recommended NOT to use any local axis specification in write_inwf, and use the utility mkw2kinput.x provided to generate appropriate WannSymm input file with local-axis.
 A typical symmetrize procedure goes as following:
