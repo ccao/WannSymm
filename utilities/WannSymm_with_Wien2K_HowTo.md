@@ -2,7 +2,7 @@
 
 There are several issues we need to pay special attention to when use WannSymm with Wien2K. 
 
-1. The Wannier orbital definition order is different in Wien2K (more precisely, in Wien2Wannier) than in Wannier90. As WannSymm default to Wannier90 order, this must be changed. This part is done by modifying the write_inwf_lapw code in Wien2K distribution. Use your favorite editor to open the write_inwf_lapw file and find the line begin with _ang_func_aliases. In Wien2K 19.1, it is located at line 261, looks like:
+1. The Wannier orbital definition order is different in Wien2K (more precisely, in Wien2Wannier) than in Wannier90. As WannSymm default to Wannier90 order, this must be changed. This part is done by modifying the write_inwf_lapw code in Wien2K distribution. Use your favorite editor to open the write_inwf_lapw file and find the line begin with \_ang_func_aliases. In Wien2K 19.1, it is located at line 261, looks like:
 
     ```python
     _angfunc_aliases = {
