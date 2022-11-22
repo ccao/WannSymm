@@ -31,7 +31,8 @@ There are several issues we need to pay special attention to when use WannSymm w
     So that the output order of Wien2Wannier would be the same as Wannier90 default.
 
 2. The Wannier orbitals generated with Wien2Wannier has “local axis” by default. In addition, if we specify “local axis” in write_inwf, it rotates the spin as well (in the SOC case), which is not desired in Wannier90. Therefore, it is highly recommended NOT to use any local axis specification in write_inwf, and use the utility mkw2kinput.x provided to generate appropriate WannSymm input file with local-axis.
-A typical symmetrize procedure goes as following:
+
+A typical symmetrize procedure therefore goes as following:
     1. Normal Wien2K calculation. Keep the case.output0 file. It will be used by  mkw2kinput.x
     2. Use the Wien2Wannier code to generate the files required in Wannier90. Remember to change the write_inwf_lapw file before use it to generate correctly ordered Wannier orbitals. Keep the case.inwf(up) file, which will also be used by mkw2kinput.x
     3. Perform Wannierize using Wannier90. In order to keep maximum symmetry, do not minimize the spreading (num_iter = 0). Keep the seed.wout file, it will also be used by mkw2kinput.x
