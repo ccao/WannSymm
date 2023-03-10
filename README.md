@@ -93,6 +93,16 @@ begin projections
 end projections
 
 MAGMOM = 0 0 5 0 0 -5 12*0
+
+begin kpath
+G  0.0000000  0.0000000  0.0000000  K  0.3333333  0.3333333  0.0000000
+K  0.3333333  0.3333333  0.0000000  M  0.0000000  0.5000000  0.0000000
+M  0.0000000  0.5000000  0.0000000  G  0.0000000  0.0000000  0.0000000
+G  0.0000000  0.0000000  0.0000000  A  0.0000000  0.0000000  0.5000000
+A  0.0000000  0.0000000  0.5000000  H  0.3333333  0.3333333  0.5000000
+H  0.3333333  0.3333333  0.5000000  L  0.0000000  0.5000000  0.5000000
+L  0.0000000  0.5000000  0.5000000  A  0.0000000  0.0000000  0.5000000
+end kpath
 ```
 
 
@@ -197,7 +207,7 @@ An example is given here:
                 (optional) 
  Type:          Array of numbers
  Description:   the x, y and z components of the k-point used for calculation
-                of characters.
+                of characters and eigenvalues of related symmetry operations.
  ```
 
 ##### degenerate_tolerance tag
@@ -290,6 +300,57 @@ nsymm=6
  Description:   Only make sense when ExpandRvec=False.
  ```
 
+
+##### kpath Block
+ Block that providing k-path for band structure and/or characters/eigenvalues of related symmetry operations.
+ 
+ An example of this block reads:
+ ```
+ begin kpath
+ G  0.0000000  0.0000000  0.0000000  K  0.3333333  0.3333333  0.0000000
+ K  0.3333333  0.3333333  0.0000000  M  0.0000000  0.5000000  0.0000000
+ M  0.0000000  0.5000000  0.0000000  G  0.0000000  0.0000000  0.0000000
+ end kpath
+ ```
+ 
+ ##### bands tag
+ ```
+ Tag Name:      bands
+                (optional)
+ Type:          Logical
+ Default:       True  with "kpath"-block given
+                False without kpath
+ Description:   if True output band structure before and after symmetrization. 
+                Related output file:
+                bands_ori.dat     contains band structure derived from the original hr.dat
+                bands_symmed.dat  contains band structure derived from the symmetrized hr.dat
+                you can compare them by gnuplot with 
+                   # gnuplot command
+                   plot 'bands_ori.dat' w l, 'bands_symmed.dat' w l
+```
+
+ ##### chaeig tag
+ ```
+ Tag Name:      chaeig
+                (optional)
+ Type:          Logical
+ Default:       True  with "kpt"-tag given
+                False without kpt
+ Description:   if True, calculate characters and eigenvalues of related symmetry operations.
+                Related output file:
+                bnd_sym_characters  contains symmetry's characters for given k-points
+                bnd_sym_eig         contains symmetry's eigenvalues for given k-points
+ ```
+ 
+  ##### chaeig_in_kpath tag
+ ```
+ Tag Name:      chaeig_in_kpath
+                (optional)
+ Type:          Logical
+ Default:       False
+ Description:   if True, calculate characters and eigenvalues for k-points in kpath.
+ ```
+ 
 #### Experimental Tags and Blocks (are not fully tested)
 
 ##### SAXIS tag
