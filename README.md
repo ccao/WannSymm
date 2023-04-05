@@ -14,7 +14,7 @@ guoxiang.zhi@gmail.com
 
 ## Installation
 
-1. install spglib version 1.16.1 is tested (https://github.com/spglib/spglib/archive/refs/tags/v1.16.1.tar.gz)
+1. install spglib (version 1.16.1 is tested, download link: https://github.com/spglib/spglib/archive/refs/tags/v1.16.1.tar.gz)
         
    - spglib installation method: https://spglib.readthedocs.io/en/latest/install.html
    
