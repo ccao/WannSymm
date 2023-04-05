@@ -14,10 +14,10 @@ guoxiang.zhi@gmail.com
 
 ## Installation
 
-1. install spglib
-        https://spglib.readthedocs.io/en/latest/install.html
-
-- spglib version 1.16.1 is tested (https://github.com/spglib/spglib/archive/refs/tags/v1.16.1.tar.gz)
+1. install spglib version 1.16.1 is tested (https://github.com/spglib/spglib/archive/refs/tags/v1.16.1.tar.gz)
+        
+   - spglib installation method: https://spglib.readthedocs.io/en/latest/install.html
+   
 2. A "make.sys" file must exist in the package root directory, there are two templates in the root directory, copy an appropriate one as e.g.:
 
 ```
