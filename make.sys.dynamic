@@ -13,7 +13,8 @@ SPGLIBROOT=/netdisk/home/gxzhi/lib/spglib
 
 
 SPGINCLUDES=${SPGLIBROOT}/include
-SPGLIBS=-L${SPGLIBROOT}/lib -lsymspg -lm
+SPGLIBS=-L${SPGLIBROOT}/lib64 -lsymspg -lm
+# SPGLIBS=-L${SPGLIBROOT}/lib -lsymspg -lm
 
 
 MKLINCLUDE=$(MKLROOT)/include
