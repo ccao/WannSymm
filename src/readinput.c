@@ -525,9 +525,9 @@ void readinput(char * fn_input,
         for (i = 0; i < *p2number_of_symm; i++){
             fprintf(fsymm,"--- %d ---\n",i+1); // number of symmetry
             for (j = 0; j < 3; j++){
-                    fprintf(fsymm,"%2d %2d %2d\n", irotations[i][j][0],
-                                                   irotations[i][j][1],
-                                                   irotations[i][j][2]);
+                    fprintf(fsymm,"%2d %2d %2d\n", (int) (rotations[i][j][0] + 1E-9),
+                                                   (int) (rotations[i][j][1] + 1E-9),
+                                                   (int) (rotations[i][j][2] + 1E-9));
             }
             fprintf(fsymm, "%f %f %f", translations[i][0],
                                         translations[i][1],
