@@ -47,6 +47,7 @@ int main(int argc, char ** argv){
     int flag_expandrvec=1;                     //switch initialization: expand rvec of hr.dat, then all weights are '1'
     int flag_symm_from_file=0;                 //Switch initialization: where symmetries come from? 0: use spglib; 1: use input file
     int flag_everysymm=0;                      //Switch initialization: Output the hr' of hr0 operated by each symmetry operation? 1:yes 0:no
+    int flag_hermitian=1;                      //Switch initialization: 1: en-force the Hermiticity of Hamiltion 0: ignore the Hermiticity
     double ham_tolerance=0.1;                  //tolerance used when flag_expandrvec==0, if some element of 
                                                //symmed_hr.dat is different from the original one, and the 
                                                //difference is larger than ham_tolerance, the code will 
@@ -97,6 +98,8 @@ int main(int argc, char ** argv){
     wanndata * ham_out;                         //array of hamtoinans get by the symmetry operation
     wanndata ham_final;
     wanndata  ham_trsymm;                       // tmp variable for time reversal procedure
+    wanndata ham_tmp_conj_trans;                // tmp variable for Hermitian procedure
+    wanndata ham_in_hermitian;                  // Ham that symmetrized by Hermitian-symmetry
     int nrpt_final;
     char ham_out_seed[MAXLEN];
 
@@ -221,7 +224,7 @@ int main(int argc, char ** argv){
                   &nsymm, &orb_info, &nwann, &flag_local_axis, &kpts, &nkpt, &kpaths, klabels, &nkpath, &nk_per_kpath,
                   &flag_bands, &flag_chaeig, &flag_chaeig_in_kpath, &flag_restart, &flag_global_trsymm, 
                   &flag_expandrvec, &symm_magnetic_tolerance, &ham_tolerance, &degenerate_tolerance,
-                  &flag_everysymm, &flag_output_mem_usage,
+                  &flag_everysymm, &flag_hermitian, &flag_output_mem_usage,
                   &flag_symm_from_file, fn_symm);
         if( flag_symm_from_file==1)    //read symmetry from symminputfile
             readsymm(fn_symm, rotations, translations, TR, &nsymm, &flag_global_trsymm);
@@ -347,15 +350,6 @@ int main(int argc, char ** argv){
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(&ham_in.norb, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&ham_in.nrpt, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    if(mpi_rank != 0)
-        init_wanndata(&ham_in);
-    MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Bcast(ham_in.ham, ham_in.nrpt*ham_in.norb*ham_in.norb, MPI_DOUBLE_COMPLEX, 0, MPI_COMM_WORLD);
-    MPI_Bcast(ham_in.hamflag, ham_in.nrpt*ham_in.norb*ham_in.norb, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(ham_in.rvec, ham_in.nrpt, mpi_vector, 0, MPI_COMM_WORLD);
-    MPI_Bcast(ham_in.weight, ham_in.nrpt, MPI_INT, 0, MPI_COMM_WORLD);
 
     if( mpi_rank == 0){
         real_time_elapsed = difftime( time(NULL), tm_start);
@@ -365,13 +359,59 @@ int main(int argc, char ** argv){
     }
     MPI_Barrier(MPI_COMM_WORLD);
 
+
     //STEP 3 Rotating
-    //3.1 get many(nsymm) Hamitonians (ham_out[i]) by the operations of symmetry
-    if( flag_restart == 1){     // restarting state, no need to symmetrise it
-        //ham_final = ham_in;
-        if(mpi_rank != 0) finalize_wanndata(ham_in); 
+    // 3.0 (pre step 3) ensure the hermitian feature of ham_in 
+    if( flag_restart==0){
+        if(mpi_rank==0){
+            ham_in_hermitian.nrpt = ham_in.nrpt;
+            ham_in_hermitian.norb = ham_in.norb;
+            init_wanndata(&ham_in_hermitian);
+            memcpy(ham_in_hermitian.weight,  ham_in.weight, sizeof(int)*ham_in.nrpt);
+            memcpy(ham_in_hermitian.rvec,  ham_in.rvec, sizeof(vector)*ham_in.nrpt);
+            memcpy(ham_in_hermitian.hamflag, ham_in.hamflag, sizeof(int) * ham_in.nrpt * ham_in.norb * ham_in.norb);
+            if (flag_hermitian == 1) {
+                ham_tmp_conj_trans.nrpt = ham_in.nrpt;
+                ham_tmp_conj_trans.norb = ham_in.norb;
+                init_wanndata(&ham_tmp_conj_trans);
+                get_conj_trans_of_ham(&ham_tmp_conj_trans, &ham_in);
+                // avearge the ham
+                for (i = 0; i < ham_in.nrpt * ham_in.norb * ham_in.norb; i++) {
+                    ham_in_hermitian.ham[i] = (ham_in.ham[i] + ham_tmp_conj_trans.ham[i]) / 2;
+                }
+                finalize_wanndata(ham_tmp_conj_trans);
+
+                real_time_elapsed = difftime( time(NULL), tm_start);
+                sprintf(msg, "Hermiticity for Hamiltion is applied, real time elasped %.0f s\n\n", real_time_elapsed);
+                print_msg(msg);
+            } else {
+                memcpy(ham_in_hermitian.ham,     ham_in.ham, sizeof(double __complex__) * ham_in.nrpt * ham_in.norb * ham_in.norb);
+            }
+        }
+        // sync all ham_in_hermitian, which will be the input of rotate_ham()
+        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Bcast(&ham_in_hermitian.norb, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&ham_in_hermitian.nrpt, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        if(mpi_rank != 0)
+            init_wanndata(&ham_in_hermitian);
+        MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Bcast(ham_in_hermitian.ham,     ham_in_hermitian.nrpt*ham_in_hermitian.norb*ham_in_hermitian.norb, MPI_DOUBLE_COMPLEX, 0, MPI_COMM_WORLD);
+        MPI_Bcast(ham_in_hermitian.hamflag, ham_in_hermitian.nrpt*ham_in_hermitian.norb*ham_in_hermitian.norb, MPI_INT, 0, MPI_COMM_WORLD);
+        MPI_Bcast(ham_in_hermitian.rvec,   ham_in_hermitian.nrpt, mpi_vector, 0, MPI_COMM_WORLD);
+        MPI_Bcast(ham_in_hermitian.weight, ham_in_hermitian.nrpt, MPI_INT, 0, MPI_COMM_WORLD);
+
+        MPI_Barrier(MPI_COMM_WORLD);
     }
-    else if( flag_restart == 0){
+
+
+
+    //3.1 get many(nsymm) Hamitonians (ham_out[i]) by the operations of symmetry
+    // note: in updated version, the initialization of ham_in_hermitian will be done only when flag_restart==0
+    //if( flag_restart == 1){     // restarting state, no need to symmetrise it
+    //    //ham_final = ham_in;
+    //    finalize_wanndata(ham_in_hermitian); 
+    //}
+    if( flag_restart == 0){
         ham_out = (wanndata *)malloc(sizeof(wanndata)*nsymm);
 
         int iter;
@@ -395,14 +435,14 @@ int main(int argc, char ** argv){
                 continue;
             }
             if(TR[i] == 1){ // ham_out need a procedure of Time reversal
-                ham_trsymm.nrpt = ham_in.nrpt;
-                ham_trsymm.norb = ham_in.norb;
+                ham_trsymm.nrpt = ham_in_hermitian.nrpt;
+                ham_trsymm.norb = ham_in_hermitian.norb;
                 init_wanndata(&ham_trsymm);
-                trsymm_ham( &ham_trsymm, &ham_in, orb_info, flag_soc);
+                trsymm_ham( &ham_trsymm, &ham_in_hermitian, orb_info, flag_soc);
                 rotate_ham(ham_out+i, &ham_trsymm, lattice, rotations[i], translations[i], orb_info, flag_soc, flag_local_axis, i);
                 finalize_wanndata(ham_trsymm);
             } else{
-                rotate_ham(ham_out+i, &ham_in, lattice, rotations[i], translations[i], orb_info, flag_soc, flag_local_axis, i);
+                rotate_ham(ham_out+i, &ham_in_hermitian, lattice, rotations[i], translations[i], orb_info, flag_soc, flag_local_axis, i);
             }
             real_time_elapsed = difftime( time(NULL), tm_start);
             cpu_time_used     = ( (double) ( clock() - clk_start) ) / CLOCKS_PER_SEC;
@@ -415,7 +455,7 @@ int main(int argc, char ** argv){
             sprintf(msg, "%s\n", msg);
             print_msg(msg);
         }
-        if(mpi_rank != 0) finalize_wanndata(ham_in); 
+        finalize_wanndata(ham_in_hermitian); 
         MPI_Barrier(MPI_COMM_WORLD);
 
 
