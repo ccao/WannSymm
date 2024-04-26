@@ -14,7 +14,6 @@ Use_POSCAR = 'POSCAR'
 Use_Symmetry = 'symmetries.in'
 
 # Projections_in_Format_of_wannier90
-# NOTE: Do not support local axis now
 begin projections
   Cr: d
   As: p

@@ -13,7 +13,6 @@ SeedName ='k233.soc'
 Use_POSCAR = 'POSCAR'
 
 # Projections_in_Format_of_wannier90
-# NOTE: Do not support local axis now
 begin projections
   Cr: d
   As: p
