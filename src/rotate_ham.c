@@ -714,6 +714,30 @@ double sign(double in){
 }
 
 
+void get_conj_trans_of_ham(wanndata * hout, wanndata * hin){
+    int irpt_out, irpt_in, iorb, jorb, ii;
+    int num_orb;
+    vector rvec_in,  rvec_out;
+
+    num_orb = hin->norb;
+
+    /* The trans conj operation should not change Rvec and weights */
+    memcpy(hout->rvec,   hin->rvec, sizeof(vector)*hin->nrpt);
+    memcpy(hout->weight, hin->weight, sizeof(int)*hin->nrpt);
+
+    for(irpt_out=0; irpt_out< hin->nrpt; irpt_out++){
+        rvec_out = hin->rvec[irpt_out];    // rvec added to the second oribital
+        rvec_in  = vector_scale(-1.0, rvec_out);
+        irpt_in = find_vector(rvec_in, hin->rvec, hin->nrpt );
+        for(jorb=0;jorb < num_orb; jorb++){
+            for(iorb=0;iorb < num_orb; iorb++){
+                ii = irpt_in * num_orb * num_orb + iorb * num_orb + jorb; // note here: iorb and jorb have been commuted.
+                hout->ham[irpt_out * num_orb * num_orb + jorb * num_orb + iorb] = conj(hin->ham[ii]);
+            }
+        }
+    }
+}
+
 void trsymm_ham(wanndata * hout, wanndata * hin, wannorb * orb_info, int flag_soc){
     int irpt,iorb,jorb,ii;
     int num_orb;

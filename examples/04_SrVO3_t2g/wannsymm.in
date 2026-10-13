@@ -7,7 +7,7 @@ Spinors= F
 SeedName='SVO3orb'
 
 # Projections_in_Format_of_wannier90
-# NOTE: Do not support local axis now; the order of orbitals make sense.
+# NOTE: the order of orbitals make sense.
 begin projections
   V: dxz; dyz; dxy
 end projections

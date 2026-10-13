@@ -36,6 +36,7 @@ void readinput(char * fn_input,
                double * p2ham_tolerance,
                double * p2degenerate_tolerance,
                int * p2flag_everysymm,
+               int * p2flag_hermitian,
                int * p2flag_output_mem_usage,
                int * p2flag_symm_from_file, 
                char * fn_symm)
@@ -272,6 +273,15 @@ void readinput(char * fn_input,
         else if( strcmp(tag, "everysymm")==0){
             if( (flag_tmp = str2boolean(arg)) != -1 )
                 *p2flag_everysymm = flag_tmp;
+            else{
+                sprintf(msg, "ERROR: %s = %s --- undefined value, should be replaced by T or F\n", tag, arg);
+                print_error(msg);
+                exit(1);
+            }
+        }
+        else if( strcmp(tag, "enforce_hermitian")==0 || strcmp(tag, "enforcehermitian")==0 || strcmp(tag, "enforcehermiticity")==0 || strcmp(tag, "enforce_hermiticity")==0 ){
+            if( (flag_tmp = str2boolean(arg)) != -1 )
+                *p2flag_hermitian = flag_tmp;
             else{
                 sprintf(msg, "ERROR: %s = %s --- undefined value, should be replaced by T or F\n", tag, arg);
                 print_error(msg);
@@ -525,9 +535,9 @@ void readinput(char * fn_input,
         for (i = 0; i < *p2number_of_symm; i++){
             fprintf(fsymm,"--- %d ---\n",i+1); // number of symmetry
             for (j = 0; j < 3; j++){
-                    fprintf(fsymm,"%2d %2d %2d\n", irotations[i][j][0],
-                                                   irotations[i][j][1],
-                                                   irotations[i][j][2]);
+                    fprintf(fsymm,"%2d %2d %2d\n", (int) nearbyint(rotations[i][j][0]),
+                                                   (int) nearbyint(rotations[i][j][1]),
+                                                   (int) nearbyint(rotations[i][j][2]));
             }
             fprintf(fsymm, "%f %f %f", translations[i][0],
                                         translations[i][1],
