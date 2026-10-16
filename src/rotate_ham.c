@@ -859,3 +859,201 @@ int is_integer(double val, double eps){
     }
 }
 
+void ham_change_basis_CS2JM(wanndata * ham_JM, wanndata * ham_final, wannorb * orb_info, wannorb_JM * orb_info_JM, int flag_soc){
+    // Definition
+    // <0, \tau_1, J_1, M_1 | H | R, \tau_2, J_2, M_2>
+    // = \SUM_{mr1 ms1 mr2 ms2} CS2JM^-1_{mr1 ms1,J1 M1} H_{R, \tau1, mr1 ms1, tau2, mr2 ms2} CS2JM_{J2 M2, mr2, ms2}
+    int norb = ham_final->norb;
+    int iorb, jorb, i_prev, i_scan, irpt;
+    int l, n_l, nstate, cs_i, cs_j, jm_i, jm_j, nfound;
+    int left_cs_orb[2*(2*MAX_L+1)], left_jm_orb[2*(2*MAX_L+1)];
+    int right_cs_orb[2*(2*MAX_L+1)], right_jm_orb[2*(2*MAX_L+1)];
+    dcomplex *cs2jm_by_l[MAX_L+1] = {NULL};
+    char msg[MAXLEN];
+    int ii_jm_left = 0;
+
+    if (flag_soc != 1) {
+        print_error("ERROR: transform_JM requires spin-orbit-coupled spinor orbitals.\n");
+        exit(1);
+    }
+    if (orb_info_JM == NULL) {
+        print_error("ERROR: JM orbital-information output buffer is NULL.\n");
+        exit(1);
+    }
+    if (ham_JM->norb != norb || ham_JM->nrpt != ham_final->nrpt) {
+        print_error("ERROR: input and output Hamiltonian dimensions do not match for transform_JM.\n");
+        exit(1);
+    }
+
+    for (l=0; l<=MAX_L; l++) {
+        nstate = 2 * (2*l + 1);
+        cs2jm_by_l[l] = (dcomplex *)malloc(sizeof(dcomplex) * nstate * nstate);
+        if (cs2jm_by_l[l] == NULL) {
+            print_error("ERROR: unable to allocate angular-momentum transform matrices.\n");
+            exit(1);
+        }
+        generate_CS2JM(cs2jm_by_l[l], NULL, l);
+    }
+
+    memcpy(ham_JM->rvec, ham_final->rvec, sizeof(vector) * ham_final->nrpt);
+    memcpy(ham_JM->weight, ham_final->weight, sizeof(int) * ham_final->nrpt);
+
+    for (iorb=0; iorb<norb; iorb++) {
+        int is_first_shell = 1;
+        l = orb_info[iorb].l;
+        n_l = 2*l + 1;
+        nstate = 2*n_l;
+        for (i_prev=0; i_prev<iorb; i_prev++) {
+            if (orb_info[i_prev].r == orb_info[iorb].r &&
+                orb_info[i_prev].l == l &&
+                equal(orb_info[i_prev].site, orb_info[iorb].site)) {
+                is_first_shell = 0;
+                break;
+            }
+        }
+        if (!is_first_shell) {
+            continue;
+        }
+
+        for (cs_i=0; cs_i<nstate; cs_i++) {
+            left_cs_orb[cs_i] = -1;
+        }
+        nfound = 0;
+        for (i_scan=0; i_scan<norb; i_scan++) {
+            if (orb_info[i_scan].r != orb_info[iorb].r ||
+                orb_info[i_scan].l != l ||
+                !equal(orb_info[i_scan].site, orb_info[iorb].site)) {
+                continue;
+            }
+            if (orb_info[i_scan].mr < 1 || orb_info[i_scan].mr > n_l ||
+                orb_info[i_scan].ms < 0 || orb_info[i_scan].ms > 1) {
+                print_error("ERROR: invalid cubic-harmonic or spin index in transform_JM.\n");
+                exit(1);
+            }
+            cs_i = (orb_info[i_scan].mr - 1) + orb_info[i_scan].ms*n_l;
+            if (left_cs_orb[cs_i] != -1) {
+                print_error("ERROR: duplicate cubic-harmonic spin state in transform_JM shell.\n");
+                exit(1);
+            }
+            left_cs_orb[cs_i] = i_scan;
+            nfound++;
+        }
+        if (nfound != nstate) {
+            sprintf(msg, "ERROR: transform_JM requires all %d cubic-harmonic spin states for each l=%d shell; found %d.\n",
+                    nstate, l, nfound);
+            print_error(msg);
+            exit(1);
+        }
+
+        for (jm_i=0; jm_i<nstate; jm_i++) {
+            double J, M;
+            int out_i = ii_jm_left + jm_i;
+            left_jm_orb[jm_i] = out_i;
+            if (jm_i < 2*l) {
+                J = l - 0.5;
+                M = jm_i - J;
+            } else {
+                J = l + 0.5;
+                M = jm_i - 2*l - J;
+            }
+            orb_info_JM[out_i].site = orb_info[iorb].site;
+            orb_info_JM[out_i].axis[0] = orb_info[iorb].axis[0];
+            orb_info_JM[out_i].axis[1] = orb_info[iorb].axis[1];
+            orb_info_JM[out_i].axis[2] = orb_info[iorb].axis[2];
+            orb_info_JM[out_i].r = orb_info[iorb].r;
+            orb_info_JM[out_i].l = l;
+            orb_info_JM[out_i].J = J;
+            orb_info_JM[out_i].M = M;
+        }
+        ii_jm_left += nstate;
+
+        int ii_jm_right = 0;
+        for (jorb=0; jorb<norb; jorb++) {
+            int is_first_right_shell = 1;
+            int right_l = orb_info[jorb].l;
+            int right_n_l, right_nstate;
+
+            for (i_prev=0; i_prev<jorb; i_prev++) {
+                if (orb_info[i_prev].r == orb_info[jorb].r &&
+                    orb_info[i_prev].l == right_l &&
+                    equal(orb_info[i_prev].site, orb_info[jorb].site)) {
+                    is_first_right_shell = 0;
+                    break;
+                }
+            }
+            if (!is_first_right_shell) {
+                continue;
+            }
+            if (right_l < 0 || right_l > MAX_L) {
+                sprintf(msg, "ERROR: unsupported angular momentum l=%d in transform_JM.\n", right_l);
+                print_error(msg);
+                exit(1);
+            }
+            right_n_l = 2*right_l + 1;
+            right_nstate = 2*right_n_l;
+
+            for (cs_j=0; cs_j<right_nstate; cs_j++) {
+                right_cs_orb[cs_j] = -1;
+            }
+            nfound = 0;
+            for (i_scan=0; i_scan<norb; i_scan++) {
+                if (orb_info[i_scan].r != orb_info[jorb].r ||
+                    orb_info[i_scan].l != right_l ||
+                    !equal(orb_info[i_scan].site, orb_info[jorb].site)) {
+                    continue;
+                }
+                if (orb_info[i_scan].mr < 1 || orb_info[i_scan].mr > right_n_l ||
+                    orb_info[i_scan].ms < 0 || orb_info[i_scan].ms > 1) {
+                    print_error("ERROR: invalid cubic-harmonic or spin index in transform_JM.\n");
+                    exit(1);
+                }
+                cs_j = (orb_info[i_scan].mr - 1) + orb_info[i_scan].ms*right_n_l;
+                if (right_cs_orb[cs_j] != -1) {
+                    print_error("ERROR: duplicate cubic-harmonic spin state in transform_JM shell.\n");
+                    exit(1);
+                }
+                right_cs_orb[cs_j] = i_scan;
+                nfound++;
+            }
+            if (nfound != right_nstate) {
+                sprintf(msg, "ERROR: transform_JM requires all %d cubic-harmonic spin states for each l=%d shell; found %d.\n",
+                        right_nstate, right_l, nfound);
+                print_error(msg);
+                exit(1);
+            }
+
+            for (jm_j=0; jm_j<right_nstate; jm_j++) {
+                right_jm_orb[jm_j] = ii_jm_right + jm_j;
+            }
+            ii_jm_right += right_nstate;
+
+            for (irpt=0; irpt<ham_final->nrpt; irpt++) {
+                for (jm_i=0; jm_i<nstate; jm_i++) {
+                    for (jm_j=0; jm_j<right_nstate; jm_j++) {
+                        dcomplex value = 0.0;
+                        int out_i = left_jm_orb[jm_i];
+                        int out_j = right_jm_orb[jm_j];
+
+                        for (cs_i=0; cs_i<nstate; cs_i++) {
+                            int in_i = left_cs_orb[cs_i];
+                            dcomplex left_factor = conj(cs2jm_by_l[l][jm_i*nstate+cs_i]);
+                            for (cs_j=0; cs_j<right_nstate; cs_j++) {
+                                int in_j = right_cs_orb[cs_j];
+                                int in_index = irpt*norb*norb + in_j*norb + in_i;
+                                value += left_factor *
+                                         ham_final->ham[in_index] *
+                                         cs2jm_by_l[right_l][jm_j*right_nstate+cs_j];
+                            }
+                        }
+                        ham_JM->ham[irpt*norb*norb + out_j*norb + out_i] = value;
+                        ham_JM->hamflag[irpt*norb*norb + out_j*norb + out_i] = 1;
+                    }
+                }
+            }
+        }
+    }
+
+    for (l=0; l<=MAX_L; l++) {
+        free(cs2jm_by_l[l]);
+    }
+}

@@ -1,4 +1,5 @@
 #include "rotate_orbital.h"
+#include <stdlib.h>
 
 //#define __DEBUG_rot_orb_detail
 //#define __DEBUG_rot_and_Ylm2C
@@ -319,4 +320,196 @@ void rotate_cubic(dcomplex * rot, int l, double axis[3], double alpha, int inv) 
   free(rot_Ylm);
   free(C2Ylm);
 
+}
+
+void print_orbital_definition_for_JM(char * seed, wannorb_JM * orb_info, int norb){
+    char fn_orb_JM[MAXLEN];
+    sprintf(fn_orb_JM, "%s_JM_orbital_def.dat", seed);
+    FILE *fout = fopen(fn_orb_JM, "w");
+    if (fout == NULL) {
+        perror(fn_orb_JM);
+        exit(EXIT_FAILURE);
+    }
+    fprintf(fout,"Orbital definition in |J,M> basis:\n");
+    fprintf(fout,"# No.    Orbitals' position(Direct)   l    J    M  r         z-axis               x-axis             y-axis\n");
+    for(int i=0;i<norb;i++){
+        fprintf(fout,"%5d %10.5lf%10.5lf%10.5lf%3d%5.1lf%5.1lf%3d%7.3lf%7.3lf%7.3lf%7.3lf%7.3lf%7.3lf%7.3lf%7.3lf%7.3lf\n", i+1,
+                         (orb_info+i)->site.x, (orb_info+i)->site.y, (orb_info+i)->site.z,
+                         (orb_info+i)->l, (orb_info+i)->J, (orb_info+i)->M, (orb_info+i)->r,
+                         (orb_info+i)->axis[2].x, (orb_info+i)->axis[2].y, (orb_info+i)->axis[2].z,
+                         (orb_info+i)->axis[0].x, (orb_info+i)->axis[0].y, (orb_info+i)->axis[0].z,
+                         (orb_info+i)->axis[1].x, (orb_info+i)->axis[1].y, (orb_info+i)->axis[1].z);
+    }
+    fprintf(fout,"\n");
+    fclose(fout);
+    return;
+}
+
+void generate_CS2JM(dcomplex * CS2JM, dcomplex * JM2CS, int l) {
+/*
+ * Generate the transform matrix between cubic harmonics + spinor and JM.
+ * Definition:
+ *   CS2YlmS = [ C2Ylm , 0; 0 C2Ylm ]
+ *   CS2JM = YlmS2JM * CS2YlmS
+ *
+ * index for cubic harmonics + spinor:
+ *   mr runs in 0,...,2*l+1
+ *   ms runs in 0,1
+ *   idx_CS = mr + ms*(2*l+1)
+ * index for JM:
+ *   M runs in -J, -J+1,...,J
+ *   if J=l-1/2
+ *     idx_JM = M + J
+ *   if J=l+1/2
+ *     idx_JM = 2*l + M + J
+ *
+ */
+
+    const int N=(2*l+1)*2;
+    const int norb=2*l+1;
+    const dcomplex one=1.0;
+    const dcomplex zero=0.0;
+    dcomplex * tt;
+    dcomplex * YlmS2JM;
+    dcomplex * C2Ylm;
+    dcomplex * CS2YlmS;
+    int ii;
+
+    if (CS2JM != NULL) {
+        tt = CS2JM;
+    } else {
+        tt = (dcomplex *)malloc(sizeof(dcomplex)*N*N);
+    }
+    memset(tt, 0, sizeof(dcomplex)*N*N);
+    YlmS2JM = (dcomplex *)malloc(sizeof(dcomplex)*N*N);
+    generate_YlmS2JM(YlmS2JM, NULL, l);
+    C2Ylm   = (dcomplex *)malloc(sizeof(dcomplex)*N*N/4);
+    generate_C2Ylm(C2Ylm, NULL, l);
+    CS2YlmS = (dcomplex *)malloc(sizeof(dcomplex)*N*N);
+    memset(CS2YlmS, 0, sizeof(dcomplex)*N*N);
+
+    // CS2YlmS = [ C2Ylm, 0; 0, C2Ylm ]
+    for (ii=0; ii<N*N; ii++) {
+        int row=ii/N;
+        int col=ii%N;
+        int row_spin=row/norb;
+        int col_spin=col/norb;
+        if (row_spin == col_spin) {
+            CS2YlmS[ii]=C2Ylm[(row%norb)*norb+(col%norb)];
+        }
+    }
+
+    // Compose the basis transforms: CS2JM = YlmS2JM * CS2YlmS.
+    cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                N, N, N, &one, YlmS2JM, N, CS2YlmS, N,
+                &zero, tt, N);
+
+    if (JM2CS != NULL) {
+        int * ipiv;
+        ipiv=(int *)malloc(sizeof(int)*N);
+
+        memcpy(JM2CS, tt, sizeof(dcomplex)*N*N);
+        LAPACKE_zgetrf(LAPACK_ROW_MAJOR, N, N, JM2CS, N, ipiv);
+        LAPACKE_zgetri(LAPACK_ROW_MAJOR, N, JM2CS, N, ipiv);
+
+        free(ipiv);
+    }
+    
+    if (CS2JM == NULL) {
+        free(tt);
+    }
+    free(YlmS2JM);
+    free(C2Ylm);
+    free(CS2YlmS);
+}
+
+void generate_YlmS2JM(dcomplex * YlmS2JM, dcomplex * JM2YlmS, int l) {
+/* 
+ * Generate the transform matrix between Ylm + spinor and |JM> (Clebsch–Gordan coefficients for L+S)
+ * Definition:
+ *   < l, m_l=(M-1/2), s=1/2, m_s=+1/2| J=(l±1/2), M> = ±sqrt(1/2(1±(M/(l+1/2))))
+ *   < l, m_l=(M+1/2), s=1/2, m_s=-1/2| J=(l±1/2), M> =  sqrt(1/2(1-1*±(M/(l+1/2))))
+ * l=0, s=1/2, J=1/2
+ *   J=1/2
+ *      |J=1/2, M=±1/2> = |l=0, m_l=0, s=1/2, m_s=±1/2> 
+ * l=1, s=1/2, J=1/2,3/2
+ *   J=1/2
+ *     |J=1/2, M=±1/2> = -1*±sqrt(1/3) |l=1, m_l=0, s=1/2, m_s=±1/2> ± sqrt(2/3) | l=1, m_l=±1, s=1/2, m_s=-1*±1/2>
+ *   J=3/2
+ *     |J=3/2, M=±3/2> = |l=1, m_l=±1, s=1/2, m_s=±1/2> 
+ *     |J=3/2, M=±1/2> = sqrt(2/3) |l=1, m_l=0, s=1/2, m_s=±1/2> + sqrt(1/3) |l=1, m_l=±1, s=1/2, m_s=-1*±1/2>
+ * l=2, s=1/2, J=3/2,5/2
+ *   J=3/2
+ *     |J=3/2, M=±3/2> = -1*±sqrt(1/5) |l=2, m_l=±1, s=1/2, m_s=±1/2> ± sqrt(4/5) | l=2, m_l=±2, s=1/2, m_s=-1*±1/2>
+ *     |J=3/2, M=±1/2> = -1*±sqrt(2/5) |l=2, m_l=0,  s=1/2, m_s=±1/2> ± sqrt(3/5) | l=2, m_l=±1, s=1/2, m_s=-1*±1/2>
+ *   J=5/2
+ *     |J=5/2, M=±5/2> = |l=2, m_l=±2, s=1/2, m_s=±1/2> 
+ *     |J=5/2, M=±3/2> = sqrt(4/5) |l=2, m_l=±1, s=1/2, m_s=±1/2> + sqrt(1/5) |l=2, m_l=±2, s=1/2, m_s=-1*±1/2>
+ *     |J=5/2, M=±1/2> = sqrt(3/5) |l=2, m_l=0,  s=1/2, m_s=±1/2> + sqrt(2/5) |l=2, m_l=±1, s=1/2, m_s=-1*±1/2>
+ * l=3, s=1/2, J=5/2,7/2
+ *   J=5/2
+ *     |J=5/2, M=±5/2> = -1*±sqrt(1/7) |l=3, m_l=±2, s=1/2, m_s=±1/2> ± sqrt(6/7) | l=3, m_l=±3, s=1/2, m_s=-1*±1/2>
+ *     |J=5/2, M=±3/2> = -1*±sqrt(2/7) |l=3, m_l=±1, s=1/2, m_s=±1/2> ± sqrt(5/7) | l=3, m_l=±2, s=1/2, m_s=-1*±1/2>
+ *     |J=5/2, M=±1/2> = -1*±sqrt(3/7) |l=3, m_l=0,  s=1/2, m_s=±1/2> ± sqrt(4/7) | l=3, m_l=±1, s=1/2, m_s=-1*±1/2>
+ *   J=7/2
+ *     |J=7/2, M=±7/2> = |l=3, m_l=±3, s=1/2, m_s=±1/2> 
+ *     |J=7/2, M=±5/2> = sqrt(6/7) |l=3, m_l=±2, s=1/2, m_s=±1/2> + sqrt(1/7) |l=3, m_l=±3, s=1/2, m_s=-1*±1/2>
+ *     |J=7/2, M=±3/2> = sqrt(5/7) |l=3, m_l=±1, s=1/2, m_s=±1/2> + sqrt(2/7) |l=3, m_l=±2, s=1/2, m_s=-1*±1/2>
+ *     |J=7/2, M=±1/2> = sqrt(4/7) |l=3, m_l=0,  s=1/2, m_s=±1/2> + sqrt(3/7) |l=3, m_l=±1, s=1/2, m_s=-1*±1/2>
+ *     
+ * Definition of index:
+ * index for YlmS ->
+ *   ml = m_l + l, can be 0,...,2*l
+ *   ms = m_s + s = ±1/2 + 1/2, can be 0,1
+ *   idx_YlmS = ml + ms*(2*l+1) = m_l + l + (m_s+1/2) * (2*l+1)
+ * index for J, M ->
+ *   if J=l-1/2, M=-J,...,J, 
+ *      idx_JM = M+J
+ *   if J=l+1/2, M=-J,...,J,
+ *      idx_JM = 2*l + M + J
+ */
+    const int N=(2*l+1)*2;
+    dcomplex * tt;
+    int idx_JM, idx_YlmS;
+
+    if (YlmS2JM != NULL) {
+        tt = YlmS2JM;
+    } else {
+        tt = (dcomplex *)malloc(sizeof(dcomplex)*N*N);
+    }
+    memset(tt, 0, sizeof(dcomplex)*N*N);
+    
+    for (idx_JM=0; idx_JM < N; idx_JM++) {
+        double J = idx_JM < 2*l ? l-0.5 : l+0.5;
+        double M = idx_JM < 2*l ? idx_JM - J : idx_JM - 2*l -J;
+        double p_or_m = J > l ? 1 : -1; // plus or minus
+        for (idx_YlmS=0; idx_YlmS<N; idx_YlmS++) {
+            int ml = idx_YlmS % (2*l+1);
+            int ms = idx_YlmS / (2*l+1);
+            int m_l = ml - l;
+            if (fabs(m_l - (M-0.5)) < 1e-8 && ms == 1){
+                // m_l == M-1/2, m_s == 1/2
+                tt[idx_JM*N+idx_YlmS] = p_or_m * sqrt((1.0 + p_or_m * (M/(l+0.5)))/2);
+            } 
+            else if (fabs(m_l - (M+0.5)) < 1e-8 && ms == 0) {
+                // m_l == M+1/2, m_s == -1/2
+                tt[idx_JM*N+idx_YlmS] = sqrt((1.0 - p_or_m * (M/(l+0.5)))/2);
+            }
+        }
+    }
+
+    if (JM2YlmS != NULL) {
+        int * ipiv;
+        ipiv=(int *)malloc(sizeof(int)*N);
+
+        memcpy(JM2YlmS, tt, sizeof(dcomplex)*N*N);
+        LAPACKE_zgetrf(LAPACK_ROW_MAJOR, N, N, JM2YlmS, N, ipiv);
+        LAPACKE_zgetri(LAPACK_ROW_MAJOR, N, JM2YlmS, N, ipiv);
+
+        free(ipiv);
+    }
+
+    if (YlmS2JM == NULL) {
+        free(tt);
+    }
 }

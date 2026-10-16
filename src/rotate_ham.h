@@ -27,3 +27,5 @@ void get_conj_trans_of_ham(wanndata * hout, wanndata * hin);
 void trsymm_ham(wanndata * hout, wanndata * hin, wannorb * orb_info, int flag_soc);
 void combine_rot_with_local_axis(double rot_combined[3][3], double rotation[3][3], double lattice[3][3], wannorb * orb_info, int io_in, int io_out);
 int is_integer(double val, double eps);
+
+void ham_change_basis_CS2JM(wanndata * ham_JM, wanndata * ham_final, wannorb * orb_info, wannorb_JM * orb_info_JM, int flag_soc);

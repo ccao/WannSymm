@@ -81,6 +81,8 @@ void readinput(char * fn_input,
                double * p2degenerate_tolerance,
                int * p2flag_everysymm,
                int * p2flag_hermitian,
+               int * p2flag_transform_JM,
+               int * p2order_type_with_spinor,
                int * p2flag_output_mem_usage,
                int * p2flag_symm_from_file, 
                char * fn_symm);

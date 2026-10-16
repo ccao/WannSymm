@@ -37,6 +37,8 @@ void readinput(char * fn_input,
                double * p2degenerate_tolerance,
                int * p2flag_everysymm,
                int * p2flag_hermitian,
+               int * p2flag_transform_JM,
+               int * p2order_type_with_spinor,
                int * p2flag_output_mem_usage,
                int * p2flag_symm_from_file, 
                char * fn_symm)
@@ -111,6 +113,7 @@ void readinput(char * fn_input,
         }
         else if( strcmp(tag, tag_dftcode ) == 0 ){
             setup_codetype(&code_type, arg);
+            *p2order_type_with_spinor = code_type;
         }
         else if( strcmp(tag, "seedname" ) == 0 ){
             strcpy(seed,arg);
@@ -282,6 +285,15 @@ void readinput(char * fn_input,
         else if( strcmp(tag, "enforce_hermitian")==0 || strcmp(tag, "enforcehermitian")==0 || strcmp(tag, "enforcehermiticity")==0 || strcmp(tag, "enforce_hermiticity")==0 ){
             if( (flag_tmp = str2boolean(arg)) != -1 )
                 *p2flag_hermitian = flag_tmp;
+            else{
+                sprintf(msg, "ERROR: %s = %s --- undefined value, should be replaced by T or F\n", tag, arg);
+                print_error(msg);
+                exit(1);
+            }
+        }
+        else if( strcmp(tag, "transform_jm")==0 || strcmp(tag, "jm_basis")==0 ){
+            if( (flag_tmp = str2boolean(arg)) != -1 )
+                *p2flag_transform_JM = flag_tmp;
             else{
                 sprintf(msg, "ERROR: %s = %s --- undefined value, should be replaced by T or F\n", tag, arg);
                 print_error(msg);

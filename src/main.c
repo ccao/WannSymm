@@ -73,6 +73,8 @@ int main(int argc, char ** argv){
     wannorb * orb_info;                         //information for each wannier orbital in one w-s unit cell
     int norb, nwann;                            //number of wannier orbitals in one w-s unit cell
     int flag_local_axis=0;                      //local axis of each site is considered as default (<=0) or not (>=1)
+    int flag_transform_JM=0;                    // Switch: transform to JM basis
+    int order_type_with_spinor=0;                      // if spinor is considered, how the orbital is arranged. 0: unset; 1: uuu...ddd...; 2: ududud..
 
     vector kpt;                                 //Kpoint for calculating bands' character of every symmetry
     int ikpt, nkpt=0;
@@ -224,7 +226,7 @@ int main(int argc, char ** argv){
                   &nsymm, &orb_info, &nwann, &flag_local_axis, &kpts, &nkpt, &kpaths, klabels, &nkpath, &nk_per_kpath,
                   &flag_bands, &flag_chaeig, &flag_chaeig_in_kpath, &flag_restart, &flag_global_trsymm, 
                   &flag_expandrvec, &symm_magnetic_tolerance, &ham_tolerance, &degenerate_tolerance,
-                  &flag_everysymm, &flag_hermitian, &flag_output_mem_usage,
+                  &flag_everysymm, &flag_hermitian, &flag_transform_JM, &order_type_with_spinor, &flag_output_mem_usage,
                   &flag_symm_from_file, fn_symm);
         if( flag_symm_from_file==1)    //read symmetry from symminputfile
             readsymm(fn_symm, rotations, translations, TR, &nsymm, &flag_global_trsymm);
@@ -769,6 +771,33 @@ int main(int argc, char ** argv){
 
     MPI_Barrier(MPI_COMM_WORLD);
 
+    // 4. Further 
+    // 4.1 transform the basis for hr.dat from cubic harmonics |l, mr, ms> to |J, M>
+    wanndata  ham_JM;
+    wannorb_JM *orb_info_JM;
+    char ham_JM_seed[MAXLEN];
+    if( mpi_rank == 0 && flag_transform_JM){
+        ham_JM.nrpt = ham_final.nrpt;
+        ham_JM.norb = ham_final.norb;
+        init_wanndata(&ham_JM);
+        orb_info_JM = (wannorb_JM *)malloc(sizeof(wannorb_JM)*ham_final.norb);
+        if (orb_info_JM == NULL) {
+            print_error("ERROR: unable to allocate JM orbital information.\n");
+            exit(1);
+        }
+        ham_change_basis_CS2JM(&ham_JM, &ham_final, orb_info, orb_info_JM, flag_soc);
+        sprintf(ham_JM_seed, "%s_JM_symmed", seed);
+        write_ham(&ham_JM, ham_JM_seed);
+        print_orbital_definition_for_JM(seed, orb_info_JM, ham_JM.norb);
+        free(orb_info_JM);
+
+        real_time_elapsed = difftime( time(NULL), tm_start);
+        cpu_time_used = ((double)(clock() - clk_start)) / CLOCKS_PER_SEC;
+        sprintf(msg, "Done: transform basis from cubic harmonics to JM, real time elasped %.0f s, cpu time (thread%3d) %.2f\n", real_time_elapsed, mpi_rank + 1, cpu_time_used);
+        print_msg(msg);
+        finalize_wanndata(ham_JM);
+    }
+
 
     if(mpi_rank==0){
         finalize_wanndata(ham_final);
@@ -786,4 +815,3 @@ int main(int argc, char ** argv){
     MPI_Finalize();
     return 0;
 }
-

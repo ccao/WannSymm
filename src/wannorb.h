@@ -21,6 +21,15 @@ typedef struct __wannorb {
  */
 } wannorb;
 
+typedef struct __wannorb_JM {
+  vector site;	/* Orbital site */
+  vector axis[3];
+  int r;    /*main quantum number? not used in symmetry*/
+  int l;	/* Maximal angular momentum for this orbital */
+  double J;    /* total angular momentum */
+  double M;    /* magnetic quantum number */
+} wannorb_JM;
+
 void init_wannorb(wannorb * orb,vector site, int l, int mr, int ms, int r, vector axisz, vector axisx, vector axisy);
 int find_index_of_wannorb(wannorb * wann, int num_wann, vector site, int r, int l, int mr, int ms);//ignored axis in version 0.01
 //void init_wannorb(wannorb * wann, vector * v, int l);
